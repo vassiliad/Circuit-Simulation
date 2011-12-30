@@ -1,0 +1,21 @@
+
+double *temp = (double*) malloc(max_nodes*elements* sizeof(double));
+	
+		for ( y=0; y< max_nodes; y++ ) {
+			for ( x =0; x < elements; x ++ ) {
+				temp[x + y * elements] = 0.0;
+				for ( c=0; c<max_nodes; c++ )
+					temp[x + y * elements] += prosptwsh[c + y * elements] * matrix[ x + c * (max_nodes+sources) ];
+				printf("%6g ", temp[x + y * elements]);
+			}
+			printf("\n");
+	}
+		for ( y=0; y< max_nodes; y++ )
+			for ( x =0; x < max_nodes; x ++ ) {
+				matrix[x + y * (sources+max_nodes)] = 0.0;
+				for ( c=0; c<elements; c++ )
+					matrix[x + y * (sources+max_nodes)] += temp[c + y * elements] * prosptwsh[ c + y * elements]; 
+			}
+
+	free(temp);
+
