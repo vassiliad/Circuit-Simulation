@@ -22,6 +22,8 @@
 	return OPTION;
 }
 
+".TRAN" return TRAN;
+
 ".PLOT" {
 	return PLOT;
 }

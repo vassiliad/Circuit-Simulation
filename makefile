@@ -4,10 +4,10 @@ zice: syntactic.tab.c lex.yy.c main.c solution.c
 debug: syntactic.tab.c lex.yy.c main.c
 	gcc -Wall -lm -g -o debug lex.yy.c syntactic.tab.c main.c solution.c
 
-syntactic.tab.c: syntactic.y
+syntactic.tab.c: syntactic.y types.h
 	bison -vt --defines=syntactic.tab.h syntactic.y
 
-lex.yy.c: lexical.l syntactic.tab.h
+lex.yy.c: lexical.l syntactic.tab.h types.h
 	flex -i lexical.l
 
 clean:

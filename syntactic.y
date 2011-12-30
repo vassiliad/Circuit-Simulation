@@ -74,7 +74,7 @@ struct option_t *g_options;
 
 %token V I R C L D Q M NUMBER NEW_LINE STR
 %token V2
-%token PLOT DC OPTION
+%token PLOT DC OPTION TRAN
 %token ASSIGN
 
 %token EXP SIN PWL PULSE
@@ -211,9 +211,33 @@ option: OPTION STR {
     $$->itol = ( $4.type == Integer ? $4.integer : $4.dbl );
   } else {
     yyerror("[-] Unknown Option\n");
+		free($$);
+		return 1;
   }
 
   free($2);
+}
+| OPTION STR ASSIGN STR
+{
+	$$ = ( struct option_t * ) calloc(1, sizeof(struct option_t));
+	
+	if ( strcasecmp($2, "method") == 0 ) {
+		if ( strcasecmp($4, "tr") == 0 ) {
+			$$->type = TR;
+		} else if ( strcasecmp($4, "be" ) == 0 ) {
+			$$->type = BE;
+		} else {
+			yyerror("[-] Expected \"TR\" or \"BE\"\n");
+			free($$);
+			return 1;
+		}
+		free($2);
+		free($4);
+	} else {
+		yyerror("[-] Expected \"METHOD\"\n");
+		free($$);
+		return 1;
+	}
 }
 ;
 
@@ -262,6 +286,13 @@ instruction: DC V NUMBER NUMBER NUMBER {
 			exit(0);
 		}
 	}
+}
+| TRAN NUMBER NUMBER
+{
+	$$ = ( struct instruction_t *) calloc(1, sizeof(struct instruction_t));
+	$$->type = Tran;
+	$$->tran.time_step = number_to_double(&$2);
+	$$->tran.time_finish = number_to_double(&$3);
 }
 ;
 

@@ -51,26 +51,39 @@ struct components_t {	// diplh sundemenh lista pou krataei posa stoixeia uparxou
 		struct description_t data;
 		struct components_t *next, *prev;
 };
+typedef struct DC_T {
+	int sourceType;
+	int source;
+	double begin;
+	double end;
+	double inc;
+} dc_t;
 
-enum INSTRUCTION_TYPE { Dc, Plot };
+typedef struct PLOT_T {
+	int *list;
+	int num;
+	FILE **output;
+} plot_t;
+
+typedef struct TRAN_T
+{
+	double time_step, time_finish;
+} tran_t;
+
+enum InstructionType 
+{ 
+	Dc, 
+	Plot, 
+	Tran
+};
 enum SourceType { Voltage, Current };
 struct instruction_t {
 	struct instruction_t *next, *prev;
-	int type;
+	enum InstructionType type;
 	union {
-		struct _DC_t {
-			int sourceType;
-			int source;
-			double begin;
-			double end;
-			double inc;
-		} dc;
-
-		struct _PLOT_t {
-			int *list;
-			int num;
-			FILE **output;
-		} plot;
+		 dc_t dc;
+		 plot_t plot;
+		 tran_t tran;
 	};
 };
 
@@ -83,18 +96,18 @@ typedef struct ENTRIES_T entries_t;
 
 enum NumberType { Integer, Double };
 struct NUMBER_T {
-	int type;
+	enum NumberType type;
 	union {
 		int integer;
 		double dbl;
 	};
 };
 
-enum Options { SPD, ITER, ITOL };
+enum OptionType { SPD, ITER, ITOL, TR, BE };
 enum IterType{ NoIter=-1, CG, BiCG };
 struct option_t {
 	struct option_t *next, *prev;
-  int type;
+  enum OptionType type;
   union {
     double itol;
     int iter_type;
