@@ -13,10 +13,13 @@ void new_t2(struct T2_t* ret, int id, int plus, int minus, char *model_name, int
 void new_t3(struct T3_t* ret, int id, int d, int g, int s, int b, double l, double w, char* model_name);
 void new_t4(struct T4_t* ret, int id, int c, int b, int e, char *model_name, int area_used, double area);
 
+double number_to_double(const number_t *number);
+
 
 struct components_t *g_components;
 struct instruction_t *g_instructions;
 struct option_t *g_options;
+
 %}
 
 %union 
@@ -64,6 +67,8 @@ struct option_t *g_options;
 	struct instruction_t *instruction;
 	struct option_t *option;
 	transient_spec_t *transient;
+	pwl_t pairs;
+	pair_t pair;
 };
 
 
@@ -88,6 +93,8 @@ struct option_t *g_options;
 %type <num_list> v_sources_list;
 %type <option> option;
 %type <transient> transient_spec
+%type <pairs> pairs
+%type <pair> pair
 %start input_file
 
 %error-verbose
@@ -273,17 +280,21 @@ v_sources_list: v_sources_list V2 {
 component: description NEW_LINE { $$ = $1; }
 ;
 
-description: V tail1 {
+description:V tail1 transient_spec 
+{
 	$$.type = V;
 	new_t1(&($$.t1),$1, $2.plus, $2.minus, $2.val);
 
 	if ( $2.val == 0 )
 		$$.t1.is_ground = 1;
-// void new_t1(struct T1_t* ret, int id, int plus, int minus, double val)
+	
+	$$.t1.transient = $3;
 }
-| I tail1 {
+| I tail1 transient_spec {
 	$$.type = I;
 	new_t1(&($$.t1),$1, $2.plus, $2.minus, $2.val);
+
+	$$.t1.transient = $3;
 // void new_t1(struct T1_t* ret, int id, int plus, int minus, double val)
 }
 | R tail1 {
@@ -403,17 +414,84 @@ tail1: NUMBER NUMBER NUMBER {
 
 transient_spec: EXP LPAREN NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER RPAREN
 {
-	
+	$$ = ( transient_spec_t* ) calloc(1, sizeof(transient_spec_t));
+	$$->type = Exp;
+	$$->exp.i1 = number_to_double(&$3);
+	$$->exp.i2 = number_to_double(&$4);
+	$$->exp.td1 = number_to_double(&$5);
+	$$->exp.td2 = number_to_double(&$6);
+	$$->exp.tc1 = number_to_double(&$7);
+	$$->exp.tc2 = number_to_double(&$8);
+}
+| SIN LPAREN NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER RPAREN
+{
+  $$ = ( transient_spec_t* ) calloc(1, sizeof(transient_spec_t));
+	$$->type = Sin;
+	$$->_sin.i1 = number_to_double(&$3);
+	$$->_sin.ia = number_to_double(&$4);
+	$$->_sin.fr = number_to_double(&$5);
+	$$->_sin.td = number_to_double(&$6);
+	$$->_sin.df = number_to_double(&$7);
+	$$->_sin.ph = number_to_double(&$8);
+}
+| PULSE LPAREN NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER RPAREN
+{
+	$$ = ( transient_spec_t* ) calloc(1, sizeof(transient_spec_t));
+	$$->type = Pulse;
+	$$->pulse.i1 = number_to_double(&$3);
+	$$->pulse.i2 = number_to_double(&$4);
+	$$->pulse.td = number_to_double(&$5);
+	$$->pulse.tr = number_to_double(&$6);
+	$$->pulse.tf = number_to_double(&$7);
+	$$->pulse.pw = number_to_double(&$8);
+	$$->pulse.per = number_to_double(&$9);
+}
+| PWL pairs
+{
+	$$ = ( transient_spec_t* ) calloc(1, sizeof(transient_spec_t));
+	$$->type = Pwl;
+	$$->pwl.pairs = $2.pairs;
+	$$->pwl.size  = $2.size;
 }
 |
 {
 	$$ = NULL;
 };
 
+pairs: pairs pair
+{
+	$$ = $1;
+	$$.size ++;
+	$$.pairs = ( pair_t* ) realloc($$.pairs, sizeof(pair_t)*($$.size));
+	$$.pairs[ $$.size-1 ] = $2;
+}
+| pair
+{
+	$$.size = 1 ;
+	$$.pairs = ( pair_t * ) calloc(1, sizeof(pair_t));
+	$$.pairs[0] = $1;
+}
+
+pair: LPAREN NUMBER NUMBER RPAREN
+{
+	$$.i = number_to_double(&$2);
+	$$.t = number_to_double(&$3);
+}
+
 %%
+
+double number_to_double(const number_t *number)
+{
+	if ( number->type == Integer )
+		return number->integer;
+	else
+		return number->dbl;
+}
+
 /*****Helper func, to init the struct*****/
 void new_t1(struct T1_t* ret, int id, int plus, int minus, double val)
 {
+	ret->transient = NULL;
 	ret->id = id;
 	ret->plus = plus;
 	ret->minus = minus;

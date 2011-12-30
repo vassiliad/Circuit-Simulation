@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+typedef struct NUMBER_T number_t;
 typedef struct TRANSIENT_SPEC_T transient_spec_t;
 
 /*gia V,I,R,C,L*/
