@@ -11,6 +11,7 @@ extern struct instruction_t *g_instructions;
 extern struct option_t *g_options;
 int spd_flag = 0;
 int iter_type = NoIter;
+extern FILE * yyin;
 
 void options_cleanup(struct option_t *g_options);
 int circuit_rename_nodes(struct components_t *circuit, struct instruction_t *instr, int element_types[], int **renamed_nodes, int *max_nodes);
@@ -589,6 +590,19 @@ void solve(double *L, double *U, double *temp, double *result,
 
 }
 
+void print_help(char *path)
+{
+	char *file;
+	file = strrchr(path, '/');
+	
+	if ( file == NULL )
+		file = path;
+	else
+		file ++;
+	
+	printf("Usage: %s SOURCE_FILE\n", file);
+}
+
 int main(int argc, char* argv[])
 {
 	int ret;
@@ -619,6 +633,19 @@ int main(int argc, char* argv[])
 	g_instructions = NULL;
 	g_components = NULL;
 	g_options = NULL;
+
+	if ( argc != 2 ) {
+		print_help(argv[0]);
+		return 0;
+	}
+
+	yyin = fopen(argv[1], "r");
+	
+	if ( yyin == NULL ) {
+		printf("[-] Could not open input file \"%s\"\n", argv[1]);
+		return 1;
+	}
+
 	ret = yyparse();
 
 	if ( ret == 0 )

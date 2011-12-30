@@ -116,8 +116,6 @@ input_file: entries {
 	g_instructions = p;
 	g_components = s;
 }
-	
-
 ;
 
 entries: entries option {
@@ -142,7 +140,6 @@ entries: entries option {
 	struct components_t *comp = (struct components_t*) calloc(1,sizeof(struct components_t));
 	comp->data = $2;
 
-	comp->next = NULL;
 	comp->prev = g_components;
 	if ( g_components )
 		g_components->next = comp;
@@ -154,14 +151,10 @@ entries: entries option {
 | instruction {
 	$$.instructions = $1;
 	g_instructions = $1;
-	$1->next = NULL;
-	$1->prev = NULL;
 }
 | component
 {
 	g_components = (struct components_t*) calloc(1,sizeof(struct components_t));
-	g_components->next = NULL;
-	g_components->prev = NULL;
 	g_components->data = $1;
 
 	$$.components = g_components;
@@ -172,8 +165,6 @@ entries: entries option {
 
 option: OPTION STR {
 	$$ = (struct option_t * ) calloc(1,sizeof(struct option_t));
-	$$->next = NULL;
-	$$->prev = NULL;
 
 	if ( strcasecmp($2,"spd") == 0 ) {
 		$$->type= SPD;
@@ -188,8 +179,6 @@ option: OPTION STR {
 | OPTION STR STR
 {
 	$$ = (struct option_t * ) calloc(1,sizeof(struct option_t));
-  $$->next = NULL;
-  $$->prev = NULL;
   if (strcasecmp($2, "iter")==0) {
     $$->type = ITER;
     if ( strcasecmp($3, "spd") == 0 )
@@ -204,8 +193,6 @@ option: OPTION STR {
 | OPTION STR ASSIGN NUMBER
 {
 	$$ = (struct option_t * ) calloc(1,sizeof(struct option_t));
-  $$->next = NULL;
-  $$->prev = NULL;
   if ( strcasecmp($2, "itol") == 0 ) {
     $$->type = ITOL;
     $$->itol = ( $4.type == Integer ? $4.integer : $4.dbl );
@@ -251,9 +238,6 @@ instruction: DC V NUMBER NUMBER NUMBER {
 	$$->dc.begin = $3.type == Integer ? $3.integer : $3.dbl;
 	$$->dc.end   = $4.type == Integer ? $4.integer : $4.dbl;
 	$$->dc.inc   = $5.type == Integer ? $5.integer : $5.dbl;
-	
-	$$->next = NULL;
-	$$->prev = NULL;
 }
 | DC I NUMBER NUMBER NUMBER {
 	$$ = (struct instruction_t*) calloc(1,sizeof(struct instruction_t));
@@ -265,7 +249,6 @@ instruction: DC V NUMBER NUMBER NUMBER {
 	$$->dc.end   = $4.type == Integer ? $4.integer : $4.dbl;
 	$$->dc.inc   = $5.type == Integer ? $5.integer : $5.dbl;
 	
-	$$->next = NULL;
 	$$->prev = NULL;
 
 }
