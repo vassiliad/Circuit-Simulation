@@ -14,4 +14,4 @@ clean:
 	rm -f syntactic.tab.c lex.yy.c debug zice syntactic.output syntactic.tab.h
 
 cloc: clean
-	cloc ./
+	cloc --exclude-lang=make,"Bourne Shell" ./
