@@ -8,6 +8,7 @@ int transpose(double *input,double *output,int size){
 	for(i = 0 ; i < size ; i++)
 		for( j = 0; j < size ; j++)
 			output[j*size+i] = input[i*size+j];
+  return 0;
 }
 
 int matrix_symmetric(double *mat, int size)
@@ -22,6 +23,19 @@ int matrix_symmetric(double *mat, int size)
 	return 1;
 }
 
+void multiply_matrix_matrix(double *a, double *b, double *c, int size)
+{
+  int i ,j , k;
+
+  for ( i=0; i  < size; i ++ ) {
+    for ( j=0; j < size; j ++ ) {
+      c[i *size + j ] = 0;
+      for ( k =0 ; k < size; k ++ ) {
+        c[i*size+j] += a[i*size +k] * b[k*size+j];
+      }
+    }
+  }
+}
 
 void multiply_matrix_vector(double *mat, double *vector, double *output, int size )
 {
@@ -80,7 +94,6 @@ void biconjugate(double *A, double *x, double *b, double *m, double itol, int si
   double *p = (double*) calloc(size, sizeof(double));
   double *ptilde = (double*) calloc(size, sizeof(double));
   double *temp = (double*) calloc(size, sizeof(double));
-  double *temptilde = (double*) calloc(size, sizeof(double));
   double rsold;
   double *Ap = (double*) calloc(size, sizeof(double));
   double *Aptilde = (double*) calloc(size, sizeof(double));
@@ -239,13 +252,13 @@ int forward_substitution(double *L, double *RHS, double *y, const int *P, int si
 
 	double sum;
 	
-	y[0] = RHS[ P[0] ];
+	y[0] = RHS[ P[0] ] / L[0];
 
 	for (i=1; i<size; i++) {
 		sum = 0;
 		for (j=0; j<i; j++ )
 			sum += L[i*size+j] * y[j];
-		y[i] = RHS[P[i]] - sum;
+		y[i] = (RHS[P[i]] - sum)/L[i*size+i] ;
 	}
 	return 1;
 }
@@ -358,6 +371,7 @@ int calculate_transpose(double *input,double *output,int size){
 	for(i = 0 ; i < size ; i++)
 		for( j = 0; j < size ; j++)
 			output[j*size+i] = input[i*size+j];
+  return 0;
 }
 
 
@@ -371,6 +385,7 @@ int print_matrix(double *A , int size)
 		}
 		printf("\n");
 	}
+  return 0;
 }
 
 int print_array(double *A , int size){
@@ -378,6 +393,7 @@ int print_array(double *A , int size){
 	for(j = 0 ; j < size  ; j++){
 		printf("%g\n",A[j]);
 	}
+  return 0;
 }
 /*
 	 int main(int argc ,int argv){
