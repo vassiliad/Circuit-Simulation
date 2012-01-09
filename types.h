@@ -103,7 +103,7 @@ struct NUMBER_T {
 	};
 };
 
-enum OptionType { SPD, ITER, ITOL, TR, BE };
+enum OptionType { SPD, ITER, ITOL, SPARSE, TR, BE };
 enum IterType{ NoIter=-1, CG, BiCG };
 struct option_t {
 	struct option_t *next, *prev;

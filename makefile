@@ -1,8 +1,5 @@
 zice: syntactic.tab.c lex.yy.c main.c solution.c
-	gcc -g lex.yy.c syntactic.tab.c solution.c main.c -lm -o zice
-
-debug: syntactic.tab.c lex.yy.c main.c
-	gcc -Wall -lm -g -o debug lex.yy.c syntactic.tab.c main.c solution.c
+	gcc -g lex.yy.c syntactic.tab.c solution.c main.c csparse.c -lm -o zice
 
 syntactic.tab.c: syntactic.y types.h
 	bison -vt --defines=syntactic.tab.h syntactic.y
