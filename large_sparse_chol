@@ -15,4 +15,5 @@ v0 10 10 0
 .option spd
 .option sparse
 
+.plot V(14)
 .dc i1 1 1 1

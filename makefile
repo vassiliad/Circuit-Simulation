@@ -1,4 +1,4 @@
-zice: syntactic.tab.c lex.yy.c main.c solution.c
+zice: syntactic.tab.c lex.yy.c main.c solution.c csparse.c
 	gcc -g lex.yy.c syntactic.tab.c solution.c main.c csparse.c -lm -o zice
 
 syntactic.tab.c: syntactic.y types.h

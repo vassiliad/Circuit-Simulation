@@ -168,11 +168,14 @@ option: OPTION STR {
 
 	if ( strcasecmp($2,"spd") == 0 ) {
 		$$->type= SPD;
-	} else if ( strcasecmp($2, "iter") == 0 ) {
+	}  else if (strcasecmp($2, "sparse") == 0 ) {
+    $$->type = SPARSE;
+  } else if ( strcasecmp($2, "iter") == 0 ) {
     $$->type = ITER;
     $$->iter_type = CG;
   } else {
-		yyerror("[-] Unknown option\n");
+		yyerror("Unknown option");
+    return 1;
 	}
   free($2);
 }
@@ -184,7 +187,8 @@ option: OPTION STR {
     if ( strcasecmp($3, "spd") == 0 )
       $$->iter_type = BiCG;
     else {
-      yyerror("[-] Invalid iter type\n");
+      yyerror("Invalid iter type");
+      return 1;
     }
   }
   free($2);
@@ -197,7 +201,7 @@ option: OPTION STR {
     $$->type = ITOL;
     $$->itol = ( $4.type == Integer ? $4.integer : $4.dbl );
   } else {
-    yyerror("[-] Unknown Option\n");
+    yyerror("Unknown Option");
 		free($$);
 		return 1;
   }
@@ -214,14 +218,14 @@ option: OPTION STR {
 		} else if ( strcasecmp($4, "be" ) == 0 ) {
 			$$->type = BE;
 		} else {
-			yyerror("[-] Expected \"TR\" or \"BE\"\n");
+			yyerror("Expected \"TR\" or \"BE\"");
 			free($$);
 			return 1;
 		}
 		free($2);
 		free($4);
 	} else {
-		yyerror("[-] Expected \"METHOD\"\n");
+		yyerror("Expected \"METHOD\"");
 		free($$);
 		return 1;
 	}
@@ -265,7 +269,7 @@ instruction: DC V NUMBER NUMBER NUMBER {
 		sprintf(filename, "plot_v_%d", $2.vals[i]);
 		$$->plot.output[i] = fopen(filename, "w");
 		if ( $$->plot.output[i] == NULL ) {
-			printf("[-] Could not open %s for output (plot)\n", filename);
+			printf("Could not open %s for output (plot)\n", filename);
 			exit(0);
 		}
 	}
@@ -332,8 +336,10 @@ description:V tail1 transient_spec
 //void new_t2(struct T2_t* ret, int id, int plus, int minus, char *model_name, int area_used, double area)
 }
 | D tail2 NUMBER {
-	if ( $3.type != Double )
-		yyerror("Expected Double as last argument\n");
+	if ( $3.type != Double ) {
+		yyerror("Expected Double as last argument");
+    return 1;
+  }
 	$$.type = D;
 	new_t2(&($$.t2), $1, $2.plus, $2.minus, $2.model_name,  1, $3.dbl );
 //void new_t2(struct T2_t* ret, int id, int plus, int minus, char *model_name, int area_used, double area)
@@ -349,8 +355,10 @@ description:V tail1 transient_spec
 	//void new_t4(struct T4_t* ret, int id, int c, int b, int e, char *model_name, int area_used, double area)
 }
 | Q tail4 NUMBER{
-	if ( $3.type != Double )
-			yyerror("Expected Double as last argument\n");
+	if ( $3.type != Double ) {
+			yyerror("Expected Double as last argument"); 
+      return 1;
+  }
 	$$.type = Q;
 	new_t4(&($$.t4), $1, $2.c, $2.b, $2.e, $2.model_name, 1, $3.dbl );
 	//void new_t4(struct T4_t* ret, int id, int c, int b, int e, char *model_name, int area_used, double area)
@@ -358,12 +366,18 @@ description:V tail1 transient_spec
 ;
 
 tail4: NUMBER NUMBER NUMBER STR {
-	if ( $1.type != Integer )
-		yyerror("C should be integer\n");
-	if ( $2.type != Integer )
-		yyerror("B should be integer\n");
-	if ( $3.type != Integer )
-		yyerror("E should be integer\n");
+	if ( $1.type != Integer ) {
+		yyerror("C should be integer");
+    return 1;
+  }
+	if ( $2.type != Integer ) {
+		yyerror("B should be integer");
+    return 1;
+  }
+	if ( $3.type != Integer ) {
+		yyerror("E should be integer");
+    return 1;
+  }
 	$$.c = $1.integer;
 	$$.b = $2.integer;
 	$$.e = $3.integer;
@@ -374,19 +388,35 @@ tail4: NUMBER NUMBER NUMBER STR {
 tail3: NUMBER NUMBER NUMBER NUMBER   NUMBER NUMBER STR {
 	//INT INT INT INT DOUBLE DOUBLE STR
 
-	if ( $1.type != Integer )
-		yyerror("D should be integer\n");
-	if ( $2.type != Integer)
-		yyerror("G should be integer\n");
-	if ( $3.type != Integer)
-		yyerror("S should be integer\n");
-	if ( $4.type != Integer )
-		yyerror("B should be integer\n");
+	if ( $1.type != Integer ) {
+		yyerror("D should be integer");
+    return 1;
+  }
+
+	if ( $2.type != Integer) {
+		yyerror("G should be integer");
+    return 1;
+  }
+
+	if ( $3.type != Integer) {
+		yyerror("S should be integer");
+    return 1;
+  }
+
+	if ( $4.type != Integer ) {
+		yyerror("B should be integer");
+    return 1;
+  }
 	
-	if ( $5.type != Double )
-		yyerror("L should be double\n");
-	if ($6.type != Double )
-		yyerror("W should be double\n");
+	if ( $5.type != Double ) {
+		yyerror("L should be double");
+    return 1;
+  }
+
+	if ($6.type != Double ) {
+		yyerror("W should be double");
+    return 1;
+  }
 
 	$$.d = $1.integer;
 	$$.g = $2.integer;
@@ -399,10 +429,15 @@ tail3: NUMBER NUMBER NUMBER NUMBER   NUMBER NUMBER STR {
 ;
 
 tail2: NUMBER NUMBER STR {
-	if ($1.type != Integer )
-		yyerror("PLUS should be integer\n");
-	if ($2.type != Integer )
-		yyerror("MINUS should be integer\n");
+	if ($1.type != Integer ) {
+		yyerror("PLUS should be integer");
+    return 1;
+  }
+
+	if ($2.type != Integer ) {
+		yyerror("MINUS should be integer");
+    return 1;
+  }
 	
 	$$.plus = $1.integer;
 	$$.minus = $2.integer;
@@ -411,10 +446,15 @@ tail2: NUMBER NUMBER STR {
 ;
 
 tail1: NUMBER NUMBER NUMBER {
-	if ($1.type != Integer )
-		yyerror("PLUS should be integer\n");
-	if ($2.type != Integer )
-		yyerror("MINUS should be integer\n");
+	if ($1.type != Integer ) {
+		yyerror("PLUS should be integer");
+    return 1;
+  }
+
+	if ($2.type != Integer ) {
+		yyerror("MINUS should be integer");
+    return 1;
+  }
 	
 	$$.plus = $1.integer;
 	$$.minus = $2.integer;
@@ -552,6 +592,6 @@ void new_t4(struct T4_t* ret, int id, int c, int b, int e, char *model_name, int
 
 void yyerror(const char *str)
 {
-	fprintf(stderr,"Error: %s@%d\n", str,yylineno);
+	fprintf(stderr,"[-] Error: %s@%d\n", str,yylineno);
 }
 

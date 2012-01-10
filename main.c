@@ -987,18 +987,11 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
         calculate_transpose(L, U, max_nodes + sources );
       }
 
-      printf("L\n");
+      /*printf("L\n");
       print_matrix(L, max_nodes+sources);
 
       printf("U\n");
-      print_matrix(U, max_nodes + sources);
-
-      printf("--------\n");
-      print_matrix(MNA, max_nodes + sources);
-
-      multiply_matrix_matrix(L, U, MNA, max_nodes+sources);
-      printf("--------\n");
-      print_matrix(MNA, max_nodes+sources);
+      print_matrix(U, max_nodes + sources);*/
 
     } else {
       m = (double*) malloc(sizeof(double) * (max_nodes+sources));
