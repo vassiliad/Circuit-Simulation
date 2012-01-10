@@ -891,7 +891,6 @@ int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int 
 
             if ( iter_type == NoIter ) {
               solve(L,U,temp,result,RHS,P,max_nodes,sources);
-              multiply_matrix_vector(MNA, result, temp, max_nodes+sources);
             } else {
               calculate_RHS(g_components,max_nodes,sources,RHS);
               memset(result, 0, sizeof(double) * ( max_nodes+sources));
