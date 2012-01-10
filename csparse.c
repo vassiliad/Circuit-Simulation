@@ -1286,7 +1286,7 @@ int cs_print_formated(const cs *T, char file[], int size)
     }
     fprintf(f,"\n");
   }
-
+	fclose(f);
   return 1;
 }
 

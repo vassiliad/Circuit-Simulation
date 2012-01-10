@@ -932,9 +932,9 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
   struct instruction_t *instr;
 
   // Gia tous sparse pinakes
-  cs *MNA_compressed;
-  css *S;
-  csn *N;
+  cs *MNA_compressed = NULL;
+  css *S =  NULL;
+  csn *N = NULL;
 
   instr = g_instructions;
 
@@ -1032,7 +1032,12 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
     }
     instr = instr->next;
   }
+	if (  S  )
+		cs_sfree(S);
+	if ( N ) 
+		cs_nfree(N);
 
+	
   if ( m ) free(m);
   if ( L ) free(L);
   if ( U ) free(U);
@@ -1073,7 +1078,7 @@ int main(int argc, char* argv[])
   }
 
   ret = yyparse();
-
+	fclose(yyin);
   if ( ret == 0 )
     printf("[+] No errors\n");
   else
