@@ -13,6 +13,7 @@ r8 14 10 10
 r11 17 16 1
 v0 10 10 0
 
+.plot V(14)
 .dc i1 1 1 1
 .option iter
 *.option spd

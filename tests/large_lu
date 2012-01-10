@@ -14,4 +14,5 @@ r11 17 16 1
 v0 10 10 0
 *.option spd
 
+.plot V(14)
 .dc i1 1 1 1
