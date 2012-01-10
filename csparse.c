@@ -1683,6 +1683,7 @@ csi cs_lusol (css *S, csn *N, double *b, double *x, int n )
         cs_lsolve (N->L, x) ;               /* x = L\x */
         cs_usolve (N->U, x) ;               /* x = U\x */
         cs_ipvec (S->q, x,b, n) ;          /* b(q) = x */
+        memcpy(x, b, sizeof(double) * n );
     }
     
     return (ok) ;

@@ -336,10 +336,6 @@ int LU_decomposition(double *A, double *L , double *U,int *P, int size)
 		}
 	}
 
-	for(i=0; i<size; i++ ) {
-		printf("%d ", P[i]);
-	}
-	printf("\n"); 
 	for (i=0; i<size; i++ ) {
 		for ( j=0; j<i; j++ ) {
 			sum = 0;

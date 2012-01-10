@@ -815,6 +815,10 @@ int instruction_dc_sparse(int max_nodes, int sources, int renamed_nodes[],
       } 
     }
   }
+  
+  /*for ( i=0; i < max_nodes+sources; i++ ) {
+    printf("%d -- %d (%g)\n", S->q[i], N->pinv[i], result[i]);
+  }*/
   return 0;
 
 }
@@ -986,7 +990,6 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
 
         calculate_transpose(L, U, max_nodes + sources );
       }
-
       /*printf("L\n");
       print_matrix(L, max_nodes+sources);
 
