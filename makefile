@@ -10,5 +10,5 @@ lex.yy.c: lexical.l syntactic.tab.h types.h
 clean:
 	rm -f syntactic.tab.c lex.yy.c debug zice syntactic.output syntactic.tab.h
 
-cloc: clean
-	cloc --exclude-lang=make,"Bourne Shell" ./
+cloc: clean 
+	cloc lexical.l syntactic.y solution.* types.h main.c
