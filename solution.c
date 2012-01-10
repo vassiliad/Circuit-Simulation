@@ -214,7 +214,6 @@ void conjugate(double *A, double *x, double *b, double *m, double itol, int size
     rsold = rsnew;
   }
 	
-	printf("iter: %d\n", i);
 
   free(r);
   free(p);
