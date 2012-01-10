@@ -1698,6 +1698,7 @@ csi cs_cholsol (css *S, csn *N , double *b, double *x, int n)
         cs_lsolve (N->L, x) ;           /* x = L\x */
         cs_ltsolve (N->L, x) ;          /* x = L'\x */
         cs_pvec (S->pinv,x, b, n) ;    /* b = P'*x */
+        memcpy(x,b,sizeof(double)*n);
     }
     
     return (ok) ;

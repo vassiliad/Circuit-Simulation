@@ -723,7 +723,7 @@ void print_help(char *path)
 }
 
 
-int instruction_dc_sparse(int max_nodes, int sources, int renamed_nodes[], 
+int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int sources, int renamed_nodes[], 
     double *RHS, css *S, csn *N, double *result)
 {
 
@@ -733,98 +733,95 @@ int instruction_dc_sparse(int max_nodes, int sources, int renamed_nodes[],
   double dummy;
   int i;
   int original_source_val;
-  struct instruction_t *instr;
+  ;
   struct components_t *s;
   struct instruction_t *ptr = g_instructions;
   int j;
 
 
-  instr = g_instructions;
   begin = instr->dc.begin;
   end = instr->dc.end;
   step = instr->dc.inc;
 
+    if(instr->dc.sourceType == Voltage){
+      for (s=g_components;s!=NULL; s=s->next) {
+        if( s->data.type == V && s->data.t1.id == instr->dc.source){
+          i = 0;
+          original_source_val = s->data.t1.val;
+          for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
 
-  if(instr->dc.sourceType == Voltage){
-    for (s=g_components;s!=NULL; s=s->next) {
-      if( s->data.type == V && s->data.t1.id == instr->dc.source){
-        i = 0;
-        original_source_val = s->data.t1.val;
-        for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
-
-          s->data.t1.val = dummy;
-          printf("Solving for Voltage Source value %g\n",dummy);
-          calculate_RHS(g_components,max_nodes,sources,RHS);
-          if ( iter_type == NoIter ) {
-            if ( spd_flag == 0 ) 
-              cs_lusol(S, N, RHS, result, (max_nodes+sources));
-            else
-              cs_cholsol(S,N, RHS, result, (max_nodes+sources));
-          }
-
-          printf("Result:\n");
-          print_array(result,max_nodes+sources);
-
-          for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
-
-            if ( ptr->type == Plot ) {
-              for (j=0; j<ptr->plot.num; j++ )
-                fprintf( ptr->plot.output[j], "%.6G for Voltage %.6g for source %d at Node %d\n",
-                    result[ptr->plot.list[j]], dummy, 
-                    s->data.t1.original_id ,renamed_nodes[ ptr->plot.list[j] ] );
-
+            s->data.t1.val = dummy;
+            printf("Solving for Voltage Source value %g\n",dummy);
+            calculate_RHS(g_components,max_nodes,sources,RHS);
+            if ( iter_type == NoIter ) {
+              if ( spd_flag == 0 ) 
+                cs_lusol(S, N, RHS, result, (max_nodes+sources));
+              else
+                cs_cholsol(S,N, RHS, result, (max_nodes+sources));
             }
 
-          }
-        }
-        s->data.t1.val = original_source_val;
-      } 
-    }
-  } else if  (instr->dc.sourceType == Current ) {
-    for (s=g_components;s!=NULL; s=s->next) {
-      if( s->data.type == I && s->data.t1.id == instr->dc.source){
-        i = 0;
-        original_source_val = s->data.t1.val;
-        for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
+            printf("Result:\n");
+            print_array(result,max_nodes+sources);
 
-          s->data.t1.val = dummy;
-          printf("Solve for Current Source value %g\n",dummy);
+            for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
 
-          calculate_RHS(g_components,max_nodes,sources,RHS);
-          if ( iter_type == NoIter ) {
-            if ( spd_flag == 0 ) 
-              cs_lusol(S, N, RHS, result, (max_nodes+sources));
-            else
-              cs_cholsol(S,N, RHS, result, (max_nodes+sources));
-          }
-          printf("Result:\n");
-          print_array(result,max_nodes+sources);
+              if ( ptr->type == Plot ) {
+                for (j=0; j<ptr->plot.num; j++ )
+                  fprintf( ptr->plot.output[j], "%.6G for Voltage %.6g for source %d at Node %d\n",
+                      result[ptr->plot.list[j]], dummy, 
+                      s->data.t1.original_id ,renamed_nodes[ ptr->plot.list[j] ] );
 
-          for (ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
-
-            if ( ptr->type == Plot ) {
-              for (j=0; j<ptr->plot.num; j++ )
-                fprintf( ptr->plot.output[j], "%.6G for Current %.6g for source %d at Node %d\n", 
-                    result[ptr->plot.list[j]],dummy,
-                    s->data.t1.original_id ,renamed_nodes[ ptr->plot.list[j] ] );
+              }
 
             }
-
-          }}
+          }
           s->data.t1.val = original_source_val;
-      } 
+        } 
+      }
+    } else if  (instr->dc.sourceType == Current ) {
+      for (s=g_components;s!=NULL; s=s->next) {
+        if( s->data.type == I && s->data.t1.id == instr->dc.source){
+          i = 0;
+          original_source_val = s->data.t1.val;
+          for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
+
+            s->data.t1.val = dummy;
+            printf("Solve for Current Source value %g\n",dummy);
+
+            calculate_RHS(g_components,max_nodes,sources,RHS);
+            if ( iter_type == NoIter ) {
+              if ( spd_flag == 0 ) 
+                cs_lusol(S, N, RHS, result, (max_nodes+sources));
+              else
+                cs_cholsol(S,N, RHS, result, (max_nodes+sources));
+            }          printf("Result:\n");
+            print_array(result,max_nodes+sources);
+
+            for (ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
+
+              if ( ptr->type == Plot ) {
+                for (j=0; j<ptr->plot.num; j++ )
+                  fprintf( ptr->plot.output[j], "%.6G for Current %.6g for source %d at Node %d\n", 
+                      result[ptr->plot.list[j]],dummy,
+                      s->data.t1.original_id ,renamed_nodes[ ptr->plot.list[j] ] );
+
+              }
+
+            }}
+            s->data.t1.val = original_source_val;
+        } 
+      }
     }
-  }
-  
+
   /*for ( i=0; i < max_nodes+sources; i++ ) {
     printf("%d -- %d (%g)\n", S->q[i], N->pinv[i], result[i]);
-  }*/
+    }*/
   return 0;
 
 }
 
 
-int instruction_dc(int max_nodes, int sources, int renamed_nodes[], 
+int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int renamed_nodes[], 
     double *MNA, double *RHS, double *L, double *U, double *m, int *P,
     double *temp, double *result)
 {
@@ -834,94 +831,94 @@ int instruction_dc(int max_nodes, int sources, int renamed_nodes[],
   double dummy;
   int i;
   int original_source_val;
-  struct instruction_t *instr;
   struct components_t *s;
   struct instruction_t *ptr = g_instructions;
   int j;
 
-  instr = g_instructions;
   begin = instr->dc.begin;
   end = instr->dc.end;
   step = instr->dc.inc;
-  if(instr->dc.sourceType == Voltage){
-    for (s=g_components;s!=NULL; s=s->next) {
-      if( s->data.type == V && s->data.t1.id == instr->dc.source){
-        i = 0;
-        original_source_val = s->data.t1.val;
-        for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
 
-          s->data.t1.val = dummy;
-          printf("Solving for Voltage Source value %g\n",dummy);
-          if ( iter_type == NoIter )
-            solve(L,U,temp,result,RHS,P,max_nodes,sources);
-          else {
-            calculate_RHS(g_components,max_nodes,sources,RHS);
-            memset(result, 0, sizeof(double) * ( max_nodes+sources));
-            if ( iter_type == CG ) {
-              conjugate(MNA, result , RHS, m, itol, max_nodes+sources);
-            } else if ( iter_type == BiCG ) {
-              biconjugate(MNA, result , RHS, m, itol, max_nodes+sources);
+
+    if(instr->dc.sourceType == Voltage){
+      for (s=g_components;s!=NULL; s=s->next) {
+        if( s->data.type == V && s->data.t1.id == instr->dc.source){
+          i = 0;
+          original_source_val = s->data.t1.val;
+          for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
+
+            s->data.t1.val = dummy;
+            printf("Solving for Voltage Source value %g\n",dummy);
+            if ( iter_type == NoIter )
+              solve(L,U,temp,result,RHS,P,max_nodes,sources);
+            else {
+              calculate_RHS(g_components,max_nodes,sources,RHS);
+              memset(result, 0, sizeof(double) * ( max_nodes+sources));
+              if ( iter_type == CG ) {
+                conjugate(MNA, result , RHS, m, itol, max_nodes+sources);
+              } else if ( iter_type == BiCG ) {
+                biconjugate(MNA, result , RHS, m, itol, max_nodes+sources);
+              }
+            }
+            printf("Result:\n");
+            print_array(result,max_nodes+sources);
+
+            for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
+
+              if ( ptr->type == Plot ) {
+                for (j=0; j<ptr->plot.num; j++ )
+                  fprintf( ptr->plot.output[j], "%.6G for Voltage %.6g for source %d at Node %d\n",
+                      result[ptr->plot.list[j]], dummy, 
+                      s->data.t1.original_id ,renamed_nodes[ ptr->plot.list[j] ] );
+
+              }
+
             }
           }
-          printf("Result:\n");
-          print_array(result,max_nodes+sources);
-
-          for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
-
-            if ( ptr->type == Plot ) {
-              for (j=0; j<ptr->plot.num; j++ )
-                fprintf( ptr->plot.output[j], "%.6G for Voltage %.6g for source %d at Node %d\n",
-                    result[ptr->plot.list[j]], dummy, 
-                    s->data.t1.original_id ,renamed_nodes[ ptr->plot.list[j] ] );
-
-            }
-
-          }
-        }
-        s->data.t1.val = original_source_val;
-      } 
-    }
-  } else if  (instr->dc.sourceType == Current ) {
-    for (s=g_components;s!=NULL; s=s->next) {
-      if( s->data.type == I && s->data.t1.id == instr->dc.source){
-        i = 0;
-        original_source_val = s->data.t1.val;
-        for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
-
-          s->data.t1.val = dummy;
-          printf("Solve for Current Source value %g\n",dummy);
-
-
-          if ( iter_type == NoIter ) {
-            solve(L,U,temp,result,RHS,P,max_nodes,sources);
-            multiply_matrix_vector(MNA, result, temp, max_nodes+sources);
-          } else {
-            calculate_RHS(g_components,max_nodes,sources,RHS);
-            memset(result, 0, sizeof(double) * ( max_nodes+sources));
-            if ( iter_type == CG ) {
-              conjugate(MNA, result , RHS, m, itol, max_nodes+sources);
-            } else if ( iter_type == BiCG ) {
-              biconjugate(MNA, result , RHS, m, itol, max_nodes+sources);
-            }
-          }
-          printf("Result:\n");
-          print_array(result,max_nodes+sources);
-
-          for (ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
-
-            if ( ptr->type == Plot ) {
-              for (j=0; j<ptr->plot.num; j++ )
-                fprintf( ptr->plot.output[j], "%.6G for Current %.6g for source %d at Node %d\n", 
-                    result[ptr->plot.list[j]],dummy,
-                    s->data.t1.original_id ,renamed_nodes[ ptr->plot.list[j] ] );
-
-            }
-
-          }}
           s->data.t1.val = original_source_val;
-      } 
+        } 
+      }
+    } else if  (instr->dc.sourceType == Current ) {
+      for (s=g_components;s!=NULL; s=s->next) {
+        if( s->data.type == I && s->data.t1.id == instr->dc.source){
+          i = 0;
+          original_source_val = s->data.t1.val;
+          for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
+
+            s->data.t1.val = dummy;
+            printf("Solve for Current Source value %g\n",dummy);
+
+
+            if ( iter_type == NoIter ) {
+              solve(L,U,temp,result,RHS,P,max_nodes,sources);
+              multiply_matrix_vector(MNA, result, temp, max_nodes+sources);
+            } else {
+              calculate_RHS(g_components,max_nodes,sources,RHS);
+              memset(result, 0, sizeof(double) * ( max_nodes+sources));
+              if ( iter_type == CG ) {
+                conjugate(MNA, result , RHS, m, itol, max_nodes+sources);
+              } else if ( iter_type == BiCG ) {
+                biconjugate(MNA, result , RHS, m, itol, max_nodes+sources);
+              }
+            }
+            printf("Result:\n");
+            print_array(result,max_nodes+sources);
+
+            for (ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
+
+              if ( ptr->type == Plot ) {
+                for (j=0; j<ptr->plot.num; j++ )
+                  fprintf( ptr->plot.output[j], "%.6G for Current %.6g for source %d at Node %d\n", 
+                      result[ptr->plot.list[j]],dummy,
+                      s->data.t1.original_id ,renamed_nodes[ ptr->plot.list[j] ] );
+
+              }
+
+            }}
+            s->data.t1.val = original_source_val;
+        } 
+      }
     }
-  }
 
   return 0;
 }
@@ -991,10 +988,10 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
         calculate_transpose(L, U, max_nodes + sources );
       }
       /*printf("L\n");
-      print_matrix(L, max_nodes+sources);
+        print_matrix(L, max_nodes+sources);
 
-      printf("U\n");
-      print_matrix(U, max_nodes + sources);*/
+        printf("U\n");
+        print_matrix(U, max_nodes + sources);*/
 
     } else {
       m = (double*) malloc(sizeof(double) * (max_nodes+sources));
@@ -1005,7 +1002,7 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
     // Sparse Matrices
     MNA_compressed = cs_compress(MNA_sparse);
     cs_spfree(MNA_sparse);
-    
+
     if ( iter_type != NoIter ) {
       printf("[-] Iterative solutions using sparse matrices are not supported yet\n");
       exit(0);
@@ -1027,10 +1024,10 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
   while ( instr ) {
     if(instr->type == Dc) {
       if ( use_sparse == 0 ) {
-        instruction_dc(max_nodes, sources, renamed_nodes, 
+        instruction_dc(instr,max_nodes, sources, renamed_nodes, 
             MNA, RHS, L, U, m, P, temp, result);
       } else {
-        instruction_dc_sparse(max_nodes, sources, renamed_nodes,
+        instruction_dc_sparse(instr, max_nodes, sources, renamed_nodes,
             RHS, S, N, result);
       }
     }
