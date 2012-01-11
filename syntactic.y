@@ -72,7 +72,7 @@ struct option_t *g_options;
 };
 
 
-%token V I R C L D Q M NUMBER NEW_LINE STR
+%token V I R C L D Q M NUMBER NEW_LINE STR COMMA
 %token V2
 %token PLOT DC OPTION TRAN
 %token ASSIGN
@@ -90,8 +90,8 @@ struct option_t *g_options;
 %type <id>V I R C L D Q M V2 
 %type <entries> entries;
 %type <instruction> instruction
-%type <num_list> v_sources_list;
-%type <option> option;
+%type <num_list> v_sources_list
+%type <option> option options option_entry
 %type <transient> transient_spec
 %type <pairs> pairs
 %type <pair> pair
@@ -103,6 +103,19 @@ input_file: entries {
 	struct components_t *s = g_components;
 	struct instruction_t *p =g_instructions;
 	struct option_t *c = g_options;
+  struct components_t *ground;
+
+  ground = ( struct components_t * ) calloc(1, sizeof(struct components_t));
+  // add ground
+  ground->data.type = V;
+	new_t1(&(ground->data.t1),-1, 0, 0,0);
+  ground->data.t1.is_ground = 1;
+
+  if ( s ) 
+    s ->next = ground;
+  else {
+    g_components = s = ground;
+  }
 
 	/* rewind the list, components is the list's tail */
 	while ( s && s->prev )
@@ -163,70 +176,91 @@ entries: entries option {
 	g_options = $1;
 }
 
-option: OPTION STR {
+option: OPTION options
+{
+  $$ = $2;
+}
+
+options: options COMMA option_entry
+{
+  struct option_t *o;
+
+  for ( o= $1; o->next; o = o->next );
+  
+  o->next = $3;
+  $$ = $1;
+}
+| option_entry
+{
+  $$ = $1;
+}
+option_entry: STR  {
 	$$ = (struct option_t * ) calloc(1,sizeof(struct option_t));
 
-	if ( strcasecmp($2,"spd") == 0 ) {
+	if ( strcasecmp($1,"spd") == 0 ) {
 		$$->type= SPD;
-	}  else if (strcasecmp($2, "sparse") == 0 ) {
+	}  else if (strcasecmp($1, "sparse") == 0 ) {
     $$->type = SPARSE;
-  } else if ( strcasecmp($2, "iter") == 0 ) {
+  } else if ( strcasecmp($1, "iter") == 0 ) {
     $$->type = ITER;
     $$->iter_type = CG;
   } else {
 		yyerror("Unknown option");
     return 1;
 	}
-  free($2);
+  free($1);
 }
-| OPTION STR STR
+| STR STR
 {
 	$$ = (struct option_t * ) calloc(1,sizeof(struct option_t));
-  if (strcasecmp($2, "iter")==0) {
+  if (strcasecmp($1, "iter")==0) {
     $$->type = ITER;
-    if ( strcasecmp($3, "spd") == 0 )
+    if ( strcasecmp($2, "spd") == 0 )
       $$->iter_type = BiCG;
     else {
       yyerror("Invalid iter type");
       return 1;
     }
   }
+  free($1);
   free($2);
-  free($3);
 }
-| OPTION STR ASSIGN NUMBER
+| STR ASSIGN NUMBER
 {
 	$$ = (struct option_t * ) calloc(1,sizeof(struct option_t));
-  if ( strcasecmp($2, "itol") == 0 ) {
+  if ( strcasecmp($1, "itol") == 0 ) {
     $$->type = ITOL;
-    $$->itol = ( $4.type == Integer ? $4.integer : $4.dbl );
+    $$->itol = ( $3.type == Integer ? $3.integer : $3.dbl );
   } else {
     yyerror("Unknown Option");
+    free($1);
 		free($$);
 		return 1;
   }
 
-  free($2);
+  free($1);
 }
-| OPTION STR ASSIGN STR
+| STR ASSIGN STR
 {
 	$$ = ( struct option_t * ) calloc(1, sizeof(struct option_t));
 	
-	if ( strcasecmp($2, "method") == 0 ) {
-		if ( strcasecmp($4, "tr") == 0 ) {
+	if ( strcasecmp($1, "method") == 0 ) {
+		if ( strcasecmp($3, "tr") == 0 ) {
 			$$->type = TR;
-		} else if ( strcasecmp($4, "be" ) == 0 ) {
+		} else if ( strcasecmp($3, "be" ) == 0 ) {
 			$$->type = BE;
 		} else {
 			yyerror("Expected \"TR\" or \"BE\"");
 			free($$);
 			return 1;
 		}
-		free($2);
-		free($4);
+		free($1);
+		free($3);
 	} else {
 		yyerror("Expected \"METHOD\"");
 		free($$);
+    free($1);
+    free($3);
 		return 1;
 	}
 }
@@ -303,8 +337,10 @@ description:V tail1 transient_spec
 	$$.type = V;
 	new_t1(&($$.t1),$1, $2.plus, $2.minus, $2.val);
 
-	if ( $2.val == 0 )
-		$$.t1.is_ground = 1;
+	if ( $2.val == 0 ) {
+    yyerror("Ground is at node 0");
+    return 1;
+  }
 	
 	$$.t1.transient = $3;
 }
@@ -592,6 +628,6 @@ void new_t4(struct T4_t* ret, int id, int c, int b, int e, char *model_name, int
 
 void yyerror(const char *str)
 {
-	fprintf(stderr,"[-] Error: %s@%d\n", str,yylineno);
+	fprintf(stderr,"[-] Error[%d]: %s\n",yylineno, str);
 }
 

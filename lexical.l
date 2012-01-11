@@ -11,6 +11,7 @@
 
 \*.*[\n]? { }
 
+"," return COMMA;
 "(" return LPAREN;
 ")" return RPAREN;
 

@@ -767,9 +767,8 @@ int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int source
 
               if ( ptr->type == Plot ) {
                 for (j=0; j<ptr->plot.num; j++ )
-                  fprintf( ptr->plot.output[j], "%.6G for Voltage %.6g for source %d at Node %d\n",
-                      result[ptr->plot.list[j]], dummy, 
-                      s->data.t1.original_id ,renamed_nodes[ ptr->plot.list[j] ] );
+                  fprintf( ptr->plot.output[j], "%G %g\n", 
+                      dummy, result[ptr->plot.list[j]]);
 
               }
 
@@ -801,9 +800,8 @@ int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int source
 
               if ( ptr->type == Plot ) {
                 for (j=0; j<ptr->plot.num; j++ )
-                  fprintf( ptr->plot.output[j], "%.6G for Current %.6g for source %d at Node %d\n", 
-                      result[ptr->plot.list[j]],dummy,
-                      s->data.t1.original_id ,renamed_nodes[ ptr->plot.list[j] ] );
+                  fprintf( ptr->plot.output[j], "%G %g\n", 
+                      dummy, result[ptr->plot.list[j]]);
 
               }
 
@@ -867,9 +865,8 @@ int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int 
 
               if ( ptr->type == Plot ) {
                 for (j=0; j<ptr->plot.num; j++ )
-                  fprintf( ptr->plot.output[j], "%.6G for Voltage %.6g for source %d at Node %d\n",
-                      result[ptr->plot.list[j]], dummy, 
-                      s->data.t1.original_id ,renamed_nodes[ ptr->plot.list[j] ] );
+                  fprintf( ptr->plot.output[j], "%G %g\n", 
+                      dummy, result[ptr->plot.list[j]]);
 
               }
 
@@ -907,9 +904,8 @@ int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int 
 
               if ( ptr->type == Plot ) {
                 for (j=0; j<ptr->plot.num; j++ )
-                  fprintf( ptr->plot.output[j], "%.6G for Current %.6g for source %d at Node %d\n", 
-                      result[ptr->plot.list[j]],dummy,
-                      s->data.t1.original_id ,renamed_nodes[ ptr->plot.list[j] ] );
+                  fprintf( ptr->plot.output[j], "%G %g\n", 
+                      dummy, result[ptr->plot.list[j]]);
 
               }
 
@@ -986,6 +982,11 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
 
         calculate_transpose(L, U, max_nodes + sources );
       }
+      
+      solve(L,U,temp,result,RHS,P,max_nodes,sources);
+      printf("Circuit Solution\n");
+      print_array(result, max_nodes+sources);
+      
       /*printf("L\n");
         print_matrix(L, max_nodes+sources);
 
@@ -1011,11 +1012,19 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
       S = cs_sqr (2, MNA_compressed, 0) ;              /* ordering and symbolic analysis */
       N = cs_lu (MNA_compressed, S, 1) ;                 /* numeric LU factorization */
       cs_spfree(MNA_compressed);
+      calculate_RHS(g_components,max_nodes,sources,RHS);
+      cs_lusol(S, N, RHS, result, (max_nodes+sources));
+      printf("Circuit Solution\n");
+      print_array(result, max_nodes+sources);
+
     } else {
       // edw exw cholesky
       S = cs_schol(1,MNA_compressed);
       N = cs_chol(MNA_compressed,S);
       cs_spfree(MNA_compressed);
+      cs_cholsol(S, N, RHS, result, (max_nodes+sources));
+      printf("Circuit Solution\n");
+      print_array(result, max_nodes+sources);
     }
 
   }
