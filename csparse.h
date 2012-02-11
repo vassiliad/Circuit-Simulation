@@ -507,3 +507,8 @@ csi cs_cholsol (css *s, csn *N , double *b, double *x, int n);
 
 #endif /* SPARSE_MATRIX_H_ */
 
+csi cs_gaxpy (const cs *A, const double *x, double *y);
+csi cs_gaxpy_transpose (const cs *A, const double *x, double *y);
+double cs_atxy(cs *T, int i, int j);
+
+

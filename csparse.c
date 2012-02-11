@@ -1245,6 +1245,22 @@ int cs_reltol(cs *A, double tol) {
  *                            UTILITY FUNCTIONS                                 *
  *                                                                              *
  ********************************************************************************/
+double cs_atxy(cs *A, int x, int y)
+{
+  int i;
+  csi p, j, n, *Ap, *Ai ;
+  double *Ax ;
+
+  if (!CS_CSC (A)) exit(0) ;       /* check inputs */
+  n = A->n ; Ap = A->p ; Ai = A->i ; Ax = A->x ;
+  
+  for ( i=Ap[y]; i < Ap[y+1] ; i++ ) {
+    if ( Ai[i] == x )
+      return Ax[i];
+  }
+
+  return 0;
+}
 
 int cs_add_to_entry(cs *T, int i, int j, double x)
 {
@@ -1702,5 +1718,38 @@ csi cs_cholsol (css *S, csn *N , double *b, double *x, int n)
     }
     
     return (ok) ;
+}
+
+
+csi cs_gaxpy_transpose (const cs *A, const double *x, double *y)
+{
+    csi p, j, n, *Ap, *Ai ;
+    double *Ax ;
+    if (!CS_CSC (A) || !x || !y) exit(0) ;       /* check inputs */
+    n = A->n ; Ap = A->p ; Ai = A->i ; Ax = A->x ;
+    for (j = 0 ; j < n ; j++)
+    {
+        for (p = Ap [j] ; p < Ap [j+1] ; p++)
+        {
+            y [j] += Ax [p] * x [Ai[p]] ;
+        }
+    }
+    return (1) ;
+}
+
+csi cs_gaxpy (const cs *A, const double *x, double *y)
+{
+    csi p, j, n, *Ap, *Ai ;
+    double *Ax ;
+    if (!CS_CSC (A) || !x || !y) exit(0) ;       /* check inputs */
+    n = A->n ; Ap = A->p ; Ai = A->i ; Ax = A->x ;
+    for (j = 0 ; j < n ; j++)
+    {
+        for (p = Ap [j] ; p < Ap [j+1] ; p++)
+        {
+            y [Ai [p]] += Ax [p] * x [j] ;
+        }
+    }
+    return (1) ;
 }
 

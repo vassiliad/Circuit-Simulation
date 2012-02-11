@@ -2,6 +2,7 @@
 #include<stdlib.h>
 #include<string.h>
 #include<math.h>
+#include"csparse.h"
 
 int transpose(double *input,double *output,int size){
 	int i,j;
@@ -88,7 +89,8 @@ void multiply_vector_scalar(double *vec, double scalar, double* output, int size
     output[i] = vec[i] * scalar;
 }
 
-void biconjugate(double *A, double *x, double *b, double *m, double itol, int size){
+
+void biconjugate_sparse(cs *A, double *x, double *b, double *m, double itol, int size){
   double *r = (double*) calloc(size, sizeof(double));
   double *rtilde = (double*) calloc(size, sizeof(double));
   double *p = (double*) calloc(size, sizeof(double));
@@ -103,15 +105,22 @@ void biconjugate(double *A, double *x, double *b, double *m, double itol, int si
   double alpha;
   double beta;
   
-  double *Atilde = (double* ) calloc(size*size, sizeof(double));
-  
+
   int i;
   
-  multiply_matrix_vector(A, x, p, size);
+  cs_gaxpy(A, x, p);
+
+  printf("MY m\n");
+  for ( i=0; i<size; i++ )
+    printf("%g ", m[i]);
+  printf("\n");
+
+  printf("MY p\n");
+  print_array(p,size);
+
   sub_vectors(b, p, r, size);
   memcpy(rtilde, r, size*sizeof(double));
   
-  transpose(A,Atilde,size);
   
   for( i = 0 ; i < size; i++){
     multiply_vector_vector(r,m,z,size);
@@ -133,9 +142,16 @@ void biconjugate(double *A, double *x, double *b, double *m, double itol, int si
       multiply_vector_scalar(ptilde,beta,ptilde,size);
       add_vectors(ztilde,ptilde,ptilde,size);
     }
+    memset(Ap,0, sizeof(double)*size);
+    memset(Aptilde, 0, sizeof(double)*size);
+
+    cs_gaxpy(A,p,Ap);
+    cs_gaxpy_transpose(A,ptilde,Aptilde);
+      
+    printf("step %d\nAp\n",i);
+    print_array(Ap, size);
     
-    multiply_matrix_vector(A,p,Ap,size);
-    multiply_matrix_vector(Atilde,ptilde,Aptilde,size);
+    
     alpha = rsnew/dot_vectors(ptilde,Ap,size);
     
     multiply_vector_scalar(p,alpha,temp,size);
@@ -147,6 +163,8 @@ void biconjugate(double *A, double *x, double *b, double *m, double itol, int si
     multiply_vector_scalar(Aptilde,alpha,temp,size);
     sub_vectors(rtilde,temp,rtilde,size);
    
+
+    
      if ( sqrt(rsnew) < itol )
       break;
     
@@ -161,12 +179,117 @@ void biconjugate(double *A, double *x, double *b, double *m, double itol, int si
   free(Aptilde);
   free(z);
   free(ztilde);
-  free(Atilde);
   
 }
 
 
 
+void biconjugate(double *A, double *x, double *b, double *m, double itol, int size){
+  double *r = (double*) calloc(size, sizeof(double));
+  double *p = (double*) calloc(size, sizeof(double));
+  double *temp = (double*) calloc(size, sizeof(double));
+  double rsold;
+  double *Ap = (double*) calloc(size, sizeof(double));
+  double *z = (double* ) calloc(size, sizeof(double));
+  double rsnew;
+  double alpha;
+  double beta;
+  
+  
+  int i;
+  
+  multiply_matrix_vector(A, x, p, size);
+  sub_vectors(b, p, r, size);
+  
+  for( i = 0 ; i < size; i++){
+    multiply_vector_vector(r,m,z,size);
+    rsold = rsnew;
+    rsnew = dot_vectors(z,r,size);
+    if(!rsnew){
+      printf("biconjugate FAILS \n");
+      return;
+    }
+    if(i == 0 ){
+      memcpy(p, z, size*sizeof(double));
+    }
+    else{
+      beta = rsnew/rsold;
+      multiply_vector_scalar(p,beta,p,size);
+      add_vectors(z,p,p,size);
+    }
+    
+    multiply_matrix_vector(A,p,Ap,size);
+    alpha = rsnew/dot_vectors(p,Ap,size);
+ 
+    multiply_vector_scalar(p,alpha,temp,size);
+    add_vectors(x,temp,x,size);
+   
+    multiply_vector_scalar(Ap,alpha,temp,size);
+    sub_vectors(r,temp,r,size);
+    
+     if ( sqrt(rsnew) < itol )
+      break;
+    
+  }
+  
+  free(r);
+  free(p);
+  free(temp);
+  free(Ap);
+  free(z);
+  
+}
+
+
+void conjugate_sparse(cs *A, double *x, double *b, double *m, double itol, int size) {
+  double *r = (double*) calloc(size, sizeof(double));
+  double *p = (double*) calloc(size, sizeof(double));
+  double *temp = (double*) calloc(size, sizeof(double));
+  double rsold;
+  double *Ap = (double*) calloc(size, sizeof(double));
+  double *z = (double* ) calloc(size, sizeof(double));
+  double rsnew;
+  double alpha;
+  
+  int i;
+  
+  cs_gaxpy(A, x, p);
+  sub_vectors(b, p, r, size);
+  multiply_vector_vector(m, r, z, size);
+  
+  memcpy(p, z, size*sizeof(double));
+  rsold = dot_vectors(r,z,size);
+  
+  for (i=0; i<size; i++ ) {
+    memset(Ap, 0, sizeof(double)*size);
+    cs_gaxpy(A,p, Ap);
+    alpha = rsold/dot_vectors(p, Ap, size);
+    
+    multiply_vector_scalar(p, alpha, temp, size);
+    add_vectors(x, temp, x, size);
+    
+    multiply_vector_scalar(Ap, alpha, temp, size);
+    sub_vectors(r, temp, r, size);
+    
+
+    multiply_vector_vector(m,r,z,size);
+    rsnew = dot_vectors(z,r, size);
+
+    if ( sqrt(rsnew) < itol )
+      break;
+    
+    multiply_vector_scalar(p, rsnew/rsold, p, size);
+    add_vectors(z, p, p, size);
+    rsold = rsnew;
+  }
+	
+
+  free(r);
+  free(p);
+  free(temp);
+  free(Ap);
+  free(z);
+}
 
 void conjugate(double *A, double *x, double *b, double *m, double itol, int size) {
 	if ( matrix_symmetric(A, size) == 0 ) {
@@ -390,27 +513,5 @@ int print_array(double *A , int size){
 	}
   return 0;
 }
-/*
-	 int main(int argc ,int argv){
-	 double A[] = {25,-5,10,-5,17,10,10,10,62};
-	 double K[] = {2,1,1,4,-6,0,-2,7,2};
-	 double M[] = {5, 1.2, 0.3, -0.6, 1.2, 6, -0.4, 0.9, 0.3, -0.4, 8, 1.7, -0.6, 0.9, 1.7, 10};
-	 double U[9];
-	 double L[9];
-	 int P[3];
-	 double result[3];
-	 double solution[] = {5,-2,9};
-	 memset(P,-1,9*sizeof(int));
-	 memset(U,0,9*sizeof(double));
-	 memset(L,0,9*sizeof(double));
-	 if(solve_system(K,L,U,P,result,solution,3,0)){
-	 print_array(result,3);
-	 printf("SUCCESS!\n");
-	 }
-	 else
-	 printf("failure\n");
-	 }
-
- */
 
 

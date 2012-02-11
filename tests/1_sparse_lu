@@ -12,7 +12,5 @@ r6 3 4 0.1
 r7 8 0 1e3
 r8 4 0 10
 
-.option sparse
-.dc v1 1 1 1
-.option itol =  1e-10
-
+.option sparse, itol =  1e-10
+*.dc v1 1 1 1

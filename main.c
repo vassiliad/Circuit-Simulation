@@ -724,7 +724,7 @@ void print_help(char *path)
 
 
 int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int sources, int renamed_nodes[], 
-    double *RHS, css *S, csn *N, double *result)
+    double *RHS, css *S, csn *N, cs* MNA, double *m, double *result)
 {
 
   double begin;
@@ -743,73 +743,89 @@ int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int source
   end = instr->dc.end;
   step = instr->dc.inc;
 
-    if(instr->dc.sourceType == Voltage){
-      for (s=g_components;s!=NULL; s=s->next) {
-        if( s->data.type == V && s->data.t1.id == instr->dc.source){
-          i = 0;
-          original_source_val = s->data.t1.val;
-          for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
+  if(instr->dc.sourceType == Voltage){
+    for (s=g_components;s!=NULL; s=s->next) {
+      if( s->data.type == V && s->data.t1.id == instr->dc.source){
+        i = 0;
+        original_source_val = s->data.t1.val;
+        for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
 
-            s->data.t1.val = dummy;
-            printf("Solving for Voltage Source value %g\n",dummy);
-            calculate_RHS(g_components,max_nodes,sources,RHS);
-            if ( iter_type == NoIter ) {
-              if ( spd_flag == 0 ) 
-                cs_lusol(S, N, RHS, result, (max_nodes+sources));
-              else
-                cs_cholsol(S,N, RHS, result, (max_nodes+sources));
-            }
-
-            printf("Result:\n");
-            print_array(result,max_nodes+sources);
-
-            for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
-
-              if ( ptr->type == Plot ) {
-                for (j=0; j<ptr->plot.num; j++ )
-                  fprintf( ptr->plot.output[j], "%G %g\n", 
-                      dummy, result[ptr->plot.list[j]]);
-
-              }
-
+          s->data.t1.val = dummy;
+          printf("Solving for Voltage Source value %g\n",dummy);
+          calculate_RHS(g_components,max_nodes,sources,RHS);
+          if ( iter_type == NoIter ) {
+            if ( spd_flag == 0 ) 
+              cs_lusol(S, N, RHS, result, (max_nodes+sources));
+            else
+              cs_cholsol(S,N, RHS, result, (max_nodes+sources));
+          }else {
+            memset(result, 0, sizeof(double) * ( max_nodes+sources));
+            if ( iter_type == CG ) {
+              conjugate_sparse(MNA, result , RHS, m, itol, max_nodes+sources);
+            } else if ( iter_type == BiCG ) {
+              biconjugate_sparse(MNA, result , RHS, m, itol, max_nodes+sources);
             }
           }
-          s->data.t1.val = original_source_val;
-        } 
-      }
-    } else if  (instr->dc.sourceType == Current ) {
-      for (s=g_components;s!=NULL; s=s->next) {
-        if( s->data.type == I && s->data.t1.id == instr->dc.source){
-          i = 0;
-          original_source_val = s->data.t1.val;
-          for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
 
-            s->data.t1.val = dummy;
-            printf("Solve for Current Source value %g\n",dummy);
+          printf("Result:\n");
+          print_array(result,max_nodes+sources);
 
-            calculate_RHS(g_components,max_nodes,sources,RHS);
-            if ( iter_type == NoIter ) {
-              if ( spd_flag == 0 ) 
-                cs_lusol(S, N, RHS, result, (max_nodes+sources));
-              else
-                cs_cholsol(S,N, RHS, result, (max_nodes+sources));
-            }          printf("Result:\n");
-            print_array(result,max_nodes+sources);
+          for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
 
-            for (ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
+            if ( ptr->type == Plot ) {
+              for (j=0; j<ptr->plot.num; j++ )
+                fprintf( ptr->plot.output[j], "%G %g\n", 
+                    dummy, result[ptr->plot.list[j]]);
 
-              if ( ptr->type == Plot ) {
-                for (j=0; j<ptr->plot.num; j++ )
-                  fprintf( ptr->plot.output[j], "%G %g\n", 
-                      dummy, result[ptr->plot.list[j]]);
+            }
 
-              }
-
-            }}
-            s->data.t1.val = original_source_val;
-        } 
-      }
+          }
+        }
+        s->data.t1.val = original_source_val;
+      } 
     }
+  } else if  (instr->dc.sourceType == Current ) {
+    for (s=g_components;s!=NULL; s=s->next) {
+      if( s->data.type == I && s->data.t1.id == instr->dc.source){
+        i = 0;
+        original_source_val = s->data.t1.val;
+        for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
+
+          s->data.t1.val = dummy;
+          printf("Solve for Current Source value %g\n",dummy);
+
+          calculate_RHS(g_components,max_nodes,sources,RHS);
+          if ( iter_type == NoIter ) {
+            if ( spd_flag == 0 ) 
+              cs_lusol(S, N, RHS, result, (max_nodes+sources));
+            else
+              cs_cholsol(S,N, RHS, result, (max_nodes+sources));
+          }else {
+            memset(result, 0, sizeof(double) * ( max_nodes+sources));
+            if ( iter_type == CG ) {
+              conjugate_sparse(MNA, result , RHS, m, itol, max_nodes+sources);
+            } else if ( iter_type == BiCG ) {
+              biconjugate_sparse(MNA, result , RHS, m, itol, max_nodes+sources);
+            }
+          }
+
+          printf("Result:\n");
+          print_array(result,max_nodes+sources);
+
+          for (ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
+
+            if ( ptr->type == Plot ) {
+              for (j=0; j<ptr->plot.num; j++ )
+                fprintf( ptr->plot.output[j], "%G %g\n", 
+                    dummy, result[ptr->plot.list[j]]);
+
+            }
+
+          }}
+          s->data.t1.val = original_source_val;
+      } 
+    }
+  }
 
   /*for ( i=0; i < max_nodes+sources; i++ ) {
     printf("%d -- %d (%g)\n", S->q[i], N->pinv[i], result[i]);
@@ -838,82 +854,82 @@ int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int 
   step = instr->dc.inc;
 
 
-    if(instr->dc.sourceType == Voltage){
-      for (s=g_components;s!=NULL; s=s->next) {
-        if( s->data.type == V && s->data.t1.id == instr->dc.source){
-          i = 0;
-          original_source_val = s->data.t1.val;
-          for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
+  if(instr->dc.sourceType == Voltage){
+    for (s=g_components;s!=NULL; s=s->next) {
+      if( s->data.type == V && s->data.t1.id == instr->dc.source){
+        i = 0;
+        original_source_val = s->data.t1.val;
+        for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
 
-            s->data.t1.val = dummy;
-            printf("Solving for Voltage Source value %g\n",dummy);
-            if ( iter_type == NoIter )
-              solve(L,U,temp,result,RHS,P,max_nodes,sources);
-            else {
-              calculate_RHS(g_components,max_nodes,sources,RHS);
-              memset(result, 0, sizeof(double) * ( max_nodes+sources));
-              if ( iter_type == CG ) {
-                conjugate(MNA, result , RHS, m, itol, max_nodes+sources);
-              } else if ( iter_type == BiCG ) {
-                biconjugate(MNA, result , RHS, m, itol, max_nodes+sources);
-              }
-            }
-            printf("Result:\n");
-            print_array(result,max_nodes+sources);
-
-            for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
-
-              if ( ptr->type == Plot ) {
-                for (j=0; j<ptr->plot.num; j++ )
-                  fprintf( ptr->plot.output[j], "%G %g\n", 
-                      dummy, result[ptr->plot.list[j]]);
-
-              }
-
+          s->data.t1.val = dummy;
+          printf("Solving for Voltage Source value %g\n",dummy);
+          if ( iter_type == NoIter )
+            solve(L,U,temp,result,RHS,P,max_nodes,sources);
+          else {
+            calculate_RHS(g_components,max_nodes,sources,RHS);
+            memset(result, 0, sizeof(double) * ( max_nodes+sources));
+            if ( iter_type == CG ) {
+              conjugate(MNA, result , RHS, m, itol, max_nodes+sources);
+            } else if ( iter_type == BiCG ) {
+              biconjugate(MNA, result , RHS, m, itol, max_nodes+sources);
             }
           }
-          s->data.t1.val = original_source_val;
-        } 
-      }
-    } else if  (instr->dc.sourceType == Current ) {
-      for (s=g_components;s!=NULL; s=s->next) {
-        if( s->data.type == I && s->data.t1.id == instr->dc.source){
-          i = 0;
-          original_source_val = s->data.t1.val;
-          for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
+          printf("Result:\n");
+          print_array(result,max_nodes+sources);
 
-            s->data.t1.val = dummy;
-            printf("Solve for Current Source value %g\n",dummy);
+          for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
 
+            if ( ptr->type == Plot ) {
+              for (j=0; j<ptr->plot.num; j++ )
+                fprintf( ptr->plot.output[j], "%G %g\n", 
+                    dummy, result[ptr->plot.list[j]]);
 
-            if ( iter_type == NoIter ) {
-              solve(L,U,temp,result,RHS,P,max_nodes,sources);
-            } else {
-              calculate_RHS(g_components,max_nodes,sources,RHS);
-              memset(result, 0, sizeof(double) * ( max_nodes+sources));
-              if ( iter_type == CG ) {
-                conjugate(MNA, result , RHS, m, itol, max_nodes+sources);
-              } else if ( iter_type == BiCG ) {
-                biconjugate(MNA, result , RHS, m, itol, max_nodes+sources);
-              }
             }
-            printf("Result:\n");
-            print_array(result,max_nodes+sources);
 
-            for (ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
-
-              if ( ptr->type == Plot ) {
-                for (j=0; j<ptr->plot.num; j++ )
-                  fprintf( ptr->plot.output[j], "%G %g\n", 
-                      dummy, result[ptr->plot.list[j]]);
-
-              }
-
-            }}
-            s->data.t1.val = original_source_val;
-        } 
-      }
+          }
+        }
+        s->data.t1.val = original_source_val;
+      } 
     }
+  } else if  (instr->dc.sourceType == Current ) {
+    for (s=g_components;s!=NULL; s=s->next) {
+      if( s->data.type == I && s->data.t1.id == instr->dc.source){
+        i = 0;
+        original_source_val = s->data.t1.val;
+        for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
+
+          s->data.t1.val = dummy;
+          printf("Solve for Current Source value %g\n",dummy);
+
+
+          if ( iter_type == NoIter ) {
+            solve(L,U,temp,result,RHS,P,max_nodes,sources);
+          } else {
+            calculate_RHS(g_components,max_nodes,sources,RHS);
+            memset(result, 0, sizeof(double) * ( max_nodes+sources));
+            if ( iter_type == CG ) {
+              conjugate(MNA, result , RHS, m, itol, max_nodes+sources);
+            } else if ( iter_type == BiCG ) {
+              biconjugate(MNA, result , RHS, m, itol, max_nodes+sources);
+            }
+          }
+          printf("Result:\n");
+          print_array(result,max_nodes+sources);
+
+          for (ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
+
+            if ( ptr->type == Plot ) {
+              for (j=0; j<ptr->plot.num; j++ )
+                fprintf( ptr->plot.output[j], "%G %g\n", 
+                    dummy, result[ptr->plot.list[j]]);
+
+            }
+
+          }}
+          s->data.t1.val = original_source_val;
+      } 
+    }
+  }
 
   return 0;
 }
@@ -982,11 +998,11 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
 
         calculate_transpose(L, U, max_nodes + sources );
       }
-      
+
       solve(L,U,temp,result,RHS,P,max_nodes,sources);
       printf("Circuit Solution\n");
       print_array(result, max_nodes+sources);
-      
+
       /*printf("L\n");
         print_matrix(L, max_nodes+sources);
 
@@ -999,32 +1015,37 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
         m[i] = MNA[i*(max_nodes+sources)+i];
     }
   } else {
-    // Sparse Matrices
     MNA_compressed = cs_compress(MNA_sparse);
     cs_spfree(MNA_sparse);
+    if ( iter_type == NoIter ) {
+      // Sparse Matrices
 
-    if ( iter_type != NoIter ) {
-      printf("[-] Iterative solutions using sparse matrices are not supported yet\n");
-      exit(0);
-    }
-    if ( spd_flag == 0 ) {
-      // edw exw LU
-      S = cs_sqr (2, MNA_compressed, 0) ;              /* ordering and symbolic analysis */
-      N = cs_lu (MNA_compressed, S, 1) ;                 /* numeric LU factorization */
-      cs_spfree(MNA_compressed);
-      calculate_RHS(g_components,max_nodes,sources,RHS);
-      cs_lusol(S, N, RHS, result, (max_nodes+sources));
-      printf("Circuit Solution\n");
-      print_array(result, max_nodes+sources);
+      if ( spd_flag == 0 ) {
+        // edw exw LU
+        S = cs_sqr (2, MNA_compressed, 0) ;              /* ordering and symbolic analysis */
+        N = cs_lu (MNA_compressed, S, 1) ;                 /* numeric LU factorization */
+        cs_spfree(MNA_compressed);
+        MNA_compressed = NULL;
+        calculate_RHS(g_components,max_nodes,sources,RHS);
+        cs_lusol(S, N, RHS, result, (max_nodes+sources));
+        printf("Circuit Solution\n");
+        print_array(result, max_nodes+sources);
 
+      } else {
+        // edw exw cholesky
+        S = cs_schol(1,MNA_compressed);
+        N = cs_chol(MNA_compressed,S);
+        cs_spfree(MNA_compressed);
+        MNA_compressed = NULL;
+        cs_cholsol(S, N, RHS, result, (max_nodes+sources));
+        printf("Circuit Solution\n");
+        print_array(result, max_nodes+sources);
+      }
     } else {
-      // edw exw cholesky
-      S = cs_schol(1,MNA_compressed);
-      N = cs_chol(MNA_compressed,S);
-      cs_spfree(MNA_compressed);
-      cs_cholsol(S, N, RHS, result, (max_nodes+sources));
-      printf("Circuit Solution\n");
-      print_array(result, max_nodes+sources);
+
+      m = (double*) malloc(sizeof(double) * (max_nodes+sources));
+      for (i=0; i<max_nodes+sources; i++ ) 
+        m[i] = cs_atxy(MNA_compressed, i, i );
     }
 
   }
@@ -1036,17 +1057,18 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
             MNA, RHS, L, U, m, P, temp, result);
       } else {
         instruction_dc_sparse(instr, max_nodes, sources, renamed_nodes,
-            RHS, S, N, result);
+            RHS, S, N, MNA_compressed ,m, result);
       }
     }
     instr = instr->next;
   }
-	if (  S  )
-		cs_sfree(S);
-	if ( N ) 
-		cs_nfree(N);
+  if (  S  )
+    cs_sfree(S);
+  if ( N ) 
+    cs_nfree(N);
+  if ( MNA_compressed )
+    cs_spfree(MNA_compressed);
 
-	
   if ( m ) free(m);
   if ( L ) free(L);
   if ( U ) free(U);
@@ -1087,7 +1109,7 @@ int main(int argc, char* argv[])
   }
 
   ret = yyparse();
-	fclose(yyin);
+  fclose(yyin);
   if ( ret == 0 )
     printf("[+] No errors\n");
   else
