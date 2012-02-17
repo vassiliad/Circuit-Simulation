@@ -15,6 +15,7 @@ int spd_flag = 0;
 int iter_type = NoIter;
 double itol = 0.001;
 int use_sparse = 0;
+double *dc_point=NULL;
 
 extern FILE * yyin;
 
@@ -277,15 +278,17 @@ void circuit_mna_sparse(struct components_t *circuit, cs** MNA, int *max_nodes, 
   cs_print_formated(*MNA, "mna_analysis", *max_nodes+*sources);
 }
 
-void circuit_mna(struct components_t *circuit, double **MNA, int *max_nodes, int *sources,
+void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, int *max_nodes, int *sources,
     int element_types[], int **renamed_nodes)
 {
-
+  int transient_analysis = 0;
   struct components_t *s, *p;
+  struct instruction_t *w;
   int max_v_id;
   int  elements;
   int x,y,c;
-  double *matrix;
+  double *matrix, *matrix2;
+
   int converted_l = 0;
   // arxika metatrepw tous puknwtes se anoixtokuklwma ( tous afairw apo to kuklwma )
   // kai ta phnia se vraxukuklwma, ta antika8istw me phges tashs 
@@ -315,7 +318,7 @@ void circuit_mna(struct components_t *circuit, double **MNA, int *max_nodes, int
   while ( s ) {
 
     if ( s->data.type == C ) {
-      if ( s->prev ) {
+      /*if ( s->prev ) {
         p = s->prev;
         s->prev->next = s->next;
         if ( s->next )
@@ -327,13 +330,13 @@ void circuit_mna(struct components_t *circuit, double **MNA, int *max_nodes, int
         free(s);
         s=p;
         s->prev = NULL;
-      }
+      }*/
 
     } else if ( s->data.type == L ) {
-      s->data.type = V;
+      /*s->data.type = V;
       s->data.t1.id = ++max_v_id;
       s->data.t1.val = 0;
-      s->data.t1.is_ground = 0;
+      s->data.t1.is_ground = 0;*/
       converted_l++;
     }
 
@@ -345,9 +348,23 @@ void circuit_mna(struct components_t *circuit, double **MNA, int *max_nodes, int
   circuit_print(g_components);
   printf("converted (l to v): %d\n", converted_l);
   printf("total sources: %d\nnodes : %d\n", *sources, *max_nodes);
+  
+  for ( w = g_instructions; w; w=w->next ){
+    if ( w->type == Tran ) {
+      transient_analysis = 1;
+      break;
+    }
+  }
+  
+  
+  *MNA_G= (double*) calloc((*max_nodes+*sources)*(*max_nodes+*sources), sizeof(double));
+  
 
-  *MNA= (double*) calloc((*max_nodes+*sources)*(*max_nodes+*sources), sizeof(double));
-  matrix  = *MNA;
+  if ( transient_analysis )
+    *MNA_C= (double*) calloc((*max_nodes+*sources)*(*max_nodes+*sources), sizeof(double));
+
+  matrix  = *MNA_G;
+  matrix2 = *MNA_C;
 
   // meta ftiaxnoume to panw aristera elements x elements pou einai ta pa8htika stoixeia
   for (s=circuit; s!=NULL ;s=s->next) {
@@ -360,7 +377,20 @@ void circuit_mna(struct components_t *circuit, double **MNA, int *max_nodes, int
         matrix[ s->data.t1.minus + s->data.t1.plus*(*max_nodes+*sources)] -= 1/s->data.t1.val;
         matrix[ s->data.t1.plus + s->data.t1.minus*(*max_nodes+*sources)] -= 1/s->data.t1.val;
       }
+    } else if ( transient_analysis && s->data.type == C )  {
+      if ( s->data.t1.plus < *max_nodes)
+        matrix2[ s->data.t1.plus + s->data.t1.plus*(*max_nodes+*sources)] += s->data.t1.val;
+      if ( s->data.t1.minus < *max_nodes )
+        matrix2[ s->data.t1.minus + s->data.t1.minus*(*max_nodes+*sources)] += s->data.t1.val;
+      if ( s->data.t1.minus < *max_nodes && s->data.t1.plus < *max_nodes ) {
+        matrix2[ s->data.t1.minus + s->data.t1.plus*(*max_nodes+*sources)] -= s->data.t1.val;
+        matrix2[ s->data.t1.plus + s->data.t1.minus*(*max_nodes+*sources)] -= s->data.t1.val;
+      }
+    } else if ( transient_analysis && s->data.type == L ) {
+      matrix2[*max_nodes+*sources-converted_l +s->data.t1.id 
+              + (*max_nodes+*sources)*(*max_nodes+*sources-converted_l+s->data.t1.id)] = - s->data.t1.val;
     }
+
   }
 
   for (c=0; c<*sources; c++ ) {
@@ -370,7 +400,7 @@ void circuit_mna(struct components_t *circuit, double **MNA, int *max_nodes, int
 
 
   for ( s=circuit; s!=NULL; s=s->next ) {
-    if ( s->data.type == V && s->data.t1.is_ground == 0 ) {
+    if ( (s->data.type == V && s->data.t1.is_ground == 0) || s->data.type == L ) {
       if ( s->data.t1.plus < *max_nodes ) {
         matrix[ *max_nodes + s->data.t1.id + (*max_nodes+*sources) * s->data.t1.plus ] = 1;
         matrix[ ( *max_nodes + s->data.t1.id ) * (*max_nodes+*sources) + s->data.t1.plus ] = 1;
@@ -380,9 +410,10 @@ void circuit_mna(struct components_t *circuit, double **MNA, int *max_nodes, int
         matrix[ ( *max_nodes + s->data.t1.id ) * (*max_nodes+*sources) + s->data.t1.minus] = -1;
       }
     }
+
   }
 
-
+  
 
   FILE* mna = fopen("mna_analysis", "w");
 
@@ -400,6 +431,26 @@ void circuit_mna(struct components_t *circuit, double **MNA, int *max_nodes, int
     fprintf(mna, "\n");
   }
   fclose(mna);
+
+  if ( transient_analysis) { 
+    mna = fopen("mna_analysis_transient", "w");
+
+    printf("MNA matrix: see file \"mna_analysis_transient\"\n" );
+
+    for (y= 0; y < *max_nodes+*sources; y++ ) {
+      if ( y == *max_nodes )
+        fprintf(mna, "\n");
+      for ( x=0; x < *max_nodes+*sources; x++ ) {
+        if ( x == *max_nodes )
+          fprintf(mna, "  ");
+        fprintf(mna, "%10g ", matrix2[x + y*(*max_nodes+*sources)] );
+
+      }
+      fprintf(mna, "\n");
+    }
+    fclose(mna);
+
+  }
 }
 
 
@@ -935,7 +986,7 @@ int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int 
 }
 
 
-int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources, int *renamed_nodes, int stoixeia[])
+int execute_instructions(double *MNA_G, double *MNA_C, cs *MNA_sparse, int max_nodes, int sources, int *renamed_nodes, int stoixeia[])
 {
   double *RHS = NULL;
   double *L=NULL,*U=NULL,*result=NULL, *m=NULL, *temp=NULL;
@@ -952,7 +1003,7 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
 
   RHS = (double*) calloc(max_nodes+sources, sizeof(double));
   result = (double*) calloc((max_nodes+sources), sizeof(double));
-
+  dc_point = (double*) calloc((max_nodes+sources), sizeof(double));
 
   if ( use_sparse == 0 ) {
     if ( iter_type == NoIter ) {
@@ -963,7 +1014,7 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
       for( i = 0 ; i < max_nodes + sources; i++ )
         P[i] = i;
       if ( spd_flag==0) {
-        LU_decomposition(MNA, L, U, P, max_nodes + sources );
+        LU_decomposition(MNA_G, L, U, P, max_nodes + sources );
       } else {
         if ( stoixeia[typeV] ) {
           printf("[-] Den prepei na uparxoun phges Tashs\n");
@@ -991,7 +1042,7 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
         }
 
 
-        if ( !Choleski_LDU_Decomposition(MNA, L, max_nodes + sources ) ) {
+        if ( !Choleski_LDU_Decomposition(MNA_G, L, max_nodes + sources ) ) {
           printf("[-] Negative value on array L\n");
           exit(0);
         }
@@ -999,20 +1050,19 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
         calculate_transpose(L, U, max_nodes + sources );
       }
 
-      solve(L,U,temp,result,RHS,P,max_nodes,sources);
+      solve(L,U,temp,dc_point,RHS,P,max_nodes,sources);
       printf("Circuit Solution\n");
-      print_array(result, max_nodes+sources);
-
-      /*printf("L\n");
-        print_matrix(L, max_nodes+sources);
-
-        printf("U\n");
-        print_matrix(U, max_nodes + sources);*/
+      print_array(dc_point, max_nodes+sources);
 
     } else {
       m = (double*) malloc(sizeof(double) * (max_nodes+sources));
+
       for (i=0; i<max_nodes+sources; i++ ) 
-        m[i] = MNA[i*(max_nodes+sources)+i];
+        m[i] = MNA_G[i*(max_nodes+sources)+i];
+
+      biconjugate(MNA_G, dc_point, RHS, m, itol, max_nodes+sources);
+      printf("Circuit Solution\n");
+      print_array(dc_point, max_nodes+sources);
     }
   } else {
     MNA_compressed = cs_compress(MNA_sparse);
@@ -1029,7 +1079,7 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
         calculate_RHS(g_components,max_nodes,sources,RHS);
         cs_lusol(S, N, RHS, result, (max_nodes+sources));
         printf("Circuit Solution\n");
-        print_array(result, max_nodes+sources);
+        print_array(dc_point, max_nodes+sources);
 
       } else {
         // edw exw cholesky
@@ -1037,24 +1087,29 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
         N = cs_chol(MNA_compressed,S);
         cs_spfree(MNA_compressed);
         MNA_compressed = NULL;
-        cs_cholsol(S, N, RHS, result, (max_nodes+sources));
+        cs_cholsol(S, N, RHS, dc_point, (max_nodes+sources));
         printf("Circuit Solution\n");
-        print_array(result, max_nodes+sources);
+        print_array(dc_point, max_nodes+sources);
       }
     } else {
-
       m = (double*) malloc(sizeof(double) * (max_nodes+sources));
+
       for (i=0; i<max_nodes+sources; i++ ) 
         m[i] = cs_atxy(MNA_compressed, i, i );
+
+      biconjugate_sparse(MNA_compressed, dc_point, RHS, m, itol, max_nodes+sources);
+      printf("Circuit Solution\n");
+      print_array(dc_point, max_nodes+sources);
     }
 
   }
+
 
   while ( instr ) {
     if(instr->type == Dc) {
       if ( use_sparse == 0 ) {
         instruction_dc(instr,max_nodes, sources, renamed_nodes, 
-            MNA, RHS, L, U, m, P, temp, result);
+            MNA_G, RHS, L, U, m, P, temp, result);
       } else {
         instruction_dc_sparse(instr, max_nodes, sources, renamed_nodes,
             RHS, S, N, MNA_compressed ,m, result);
@@ -1062,6 +1117,10 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
     }
     instr = instr->next;
   }
+
+  if (dc_point )
+    free(dc_point);
+
   if (  S  )
     cs_sfree(S);
   if ( N ) 
@@ -1075,7 +1134,7 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
   if ( P ) free(P);
   if ( temp ) free(temp);
   if ( result) free(result);
-  if ( MNA )free(MNA);
+  if ( MNA_G) free(MNA_G);
   if ( RHS ) free(RHS);
   if ( renamed_nodes ) free(renamed_nodes);
 
@@ -1086,7 +1145,7 @@ int execute_instructions(double *MNA, cs *MNA_sparse, int max_nodes, int sources
 int main(int argc, char* argv[])
 {
   int ret;
-  double *MNA = NULL;
+  double *MNA_G=NULL, *MNA_C=NULL;
   cs *MNA_sparse = NULL;
   int max_nodes, sources, *renamed_nodes;
   int stoixeia[8] = { 0,0,0,0,0,0,0,0 };
@@ -1140,13 +1199,11 @@ int main(int argc, char* argv[])
 
 
   if ( use_sparse==0 )
-    circuit_mna(g_components,&MNA,&max_nodes,&sources, stoixeia, &renamed_nodes);
+    circuit_mna(g_components,&MNA_G, &MNA_C,&max_nodes,&sources, stoixeia, &renamed_nodes);
   else
     circuit_mna_sparse(g_components,&MNA_sparse,&max_nodes,&sources, stoixeia, &renamed_nodes);
 
-
-
-  execute_instructions(MNA, MNA_sparse, max_nodes, sources, renamed_nodes, stoixeia);
+  execute_instructions(MNA_G, MNA_C, MNA_sparse, max_nodes, sources, renamed_nodes, stoixeia);
 
   circuit_cleanup(g_components);
   instructions_cleanup(g_instructions);
