@@ -14,7 +14,7 @@ void new_t3(struct T3_t* ret, int id, int d, int g, int s, int b, double l, doub
 void new_t4(struct T4_t* ret, int id, int c, int b, int e, char *model_name, int area_used, double area);
 
 double number_to_double(const number_t *number);
-
+int compare_pair(const void *p1, const void *p2);
 
 struct components_t *g_components;
 struct instruction_t *g_instructions;
@@ -109,6 +109,7 @@ input_file: entries {
   // add ground
   ground->data.type = V;
 	new_t1(&(ground->data.t1),-1, 0, 0,0);
+  ground->data.t1.is_ground = 1;
 
   if ( s ) 
     s ->next = ground;
@@ -541,6 +542,12 @@ transient_spec: EXP LPAREN NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER RPAREN
 	$$->type = Pwl;
 	$$->pwl.pairs = $2.pairs;
 	$$->pwl.size  = $2.size;
+  
+  if ( $2.size < 2 ) {
+    yyerror("PWL Pairs must be at least 2");
+    return 1;
+  }
+  qsort($$->pwl.pairs,$2.size, sizeof(pair_t), compare_pair);
 }
 |
 {
@@ -585,6 +592,7 @@ void new_t1(struct T1_t* ret, int id, int plus, int minus, double val)
 	ret->plus = plus;
 	ret->minus = minus;
 	ret->val = val;
+  ret->is_ground = 0;
 }
 
 /*****Helper func, to init the struct*****/
@@ -626,5 +634,15 @@ void new_t4(struct T4_t* ret, int id, int c, int b, int e, char *model_name, int
 void yyerror(const char *str)
 {
 	fprintf(stderr,"[-] Error[%d]: %s\n",yylineno, str);
+}
+
+int compare_pair(const void *p1, const void *p2)
+{
+  if ( ((pair_t*)p1)->t > ((pair_t*)p2)->t )
+    return 1;
+  if ( ((pair_t*)p1)->t < ((pair_t*)p2)->t )
+    return -1;
+
+  return 0;
 }
 

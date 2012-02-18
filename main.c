@@ -1,10 +1,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include "types.h"
 #include "syntactic.tab.h"
 #include "solution.h"
 #include "csparse.h"
+
+#define  epsilon 2.71828183
+#define  pi      3.14159265
 
 int yylex_destroy();
 int yyparse();
@@ -23,6 +27,97 @@ void options_cleanup(struct option_t *g_options);
 int circuit_rename_nodes(struct components_t *circuit, struct instruction_t *instr, int element_types[], int **renamed_nodes, int *max_nodes);
 
 enum elementTypes {typeV, typeI, typeR, typeC, typeL, typeM, typeD, typeQ };
+
+double linear_interpolate(double x, double x0, double y0, double x1, double y1)
+{
+  return y0 + ((x-x0)*y1 - (x-x0)*y0)/(x1-x0);
+}
+
+double calculate_ac(const transient_spec_t *transient, double t)
+{
+  int i;
+  if ( transient == NULL ) 
+    return 0;
+
+  switch ( transient->type ) {
+    case Exp:
+      if ( t < transient->exp.td1 ) {
+        return transient->exp.i1;
+      } else if ( t < transient->exp.td2 ) {
+        return transient->exp.i1 + ( transient->exp.i2 - transient->exp.i1 )*
+            ( 1 - pow(epsilon, -(t-transient->exp.td1)/transient->exp.tc1));
+      } else {
+        return transient->exp.i1 + ( transient->exp.i2 - transient->exp.i1 )*
+            ( pow(epsilon, -(t-transient->exp.td2)/transient->exp.tc2) 
+            - pow(epsilon, -(t-transient->exp.td1)/transient->exp.tc1));
+      }
+    break;
+
+    case Sin:
+      if ( t < transient->_sin.td ) {
+        return transient->_sin.i1 + transient->_sin.ia * sin( 2*pi * transient->_sin.ph / 360);
+      } else {
+        return transient->_sin.i1 + transient->_sin.ia 
+          * sin(2*pi * transient->_sin.fr * (t - transient->_sin.td ) 
+          + 2*pi * transient->_sin.ph / 360) 
+          * pow(epsilon, -(t-transient->_sin.td)* transient->_sin.df);
+      }
+
+    break;
+    case Pulse:
+      if ( t > transient->pulse.per )
+        t-= transient->pulse.per;
+
+      if ( t < transient->pulse.td ) {
+        return transient->pulse.i1;
+      } else if ( t  < transient->pulse.td + transient->pulse.tr ) {
+        return  linear_interpolate(t,
+                                  transient->pulse.td,
+                                  transient->pulse.i1,
+                                  transient->pulse.td+transient->pulse.tr,
+                                  transient->pulse.i2);
+      } else if ( t  < transient->pulse.td + transient->pulse.tr + 
+                       transient->pulse.pw) {
+        return transient->pulse.i2;
+      } else if ( t  < transient->pulse.td + transient->pulse.tr +
+                       transient->pulse.pw + transient->pulse.tf ) {
+        return linear_interpolate(t,
+                                  transient->pulse.td+transient->pulse.tr+transient->pulse.pw,
+                                  transient->pulse.i2,
+                                  transient->pulse.td+transient->pulse.tr+transient->pulse.pw
+                                      + transient->pulse.tf,
+                                  transient->pulse.i1);
+      } else {
+        return transient->pulse.i1;
+      }
+       
+    break;
+
+    case Pwl:
+      for ( i=0; i<transient->pwl.size; i++ ) {
+        if ( t > transient->pwl.pairs[i].t ) {
+          if( i == transient->pwl.size-1 ) {
+            return transient->pwl.pairs[i].i;            
+          }
+
+          return linear_interpolate(t,
+                      transient->pwl.pairs[i].t,
+                      transient->pwl.pairs[i].i,
+                      transient->pwl.pairs[i+1].t,
+                      transient->pwl.pairs[i+1].i);
+        }
+      }
+
+      return transient->pwl.pairs->i;
+    break;
+
+    default:
+      printf("Invalid calculate_ac type\n");
+      exit(0);
+  }
+  
+}
+
 
 void instructions_print(struct instruction_t *instr)
 {
@@ -405,22 +500,34 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
 }
 
 
-int calculate_RHS(struct components_t *circuit,int max_nodes,int sources, double *RHS){
+int calculate_RHS(struct components_t *circuit,int max_nodes,int sources, double *RHS, double t){
   int y;
   struct components_t *s;
+  double temp = 0;
 
   for ( y=0; y< max_nodes + sources; y++ )
     RHS[y] = 0;
 
   for (s=circuit; s!=NULL; s=s->next) {
     if ( s->data.type == I ) {
+      if ( t >= 0 )
+        temp = calculate_ac(s->data.t1.transient, t);
+
       if ( s->data.t1.plus != max_nodes )
-        RHS[ s->data.t1.plus ] += s->data.t1.val;
-      else
-        RHS[ s->data.t1.minus] -= s->data.t1.val;
+        RHS[ s->data.t1.plus ] += s->data.t1.val + temp;
+      else if ( s->data.t1.minus != max_nodes )
+        RHS[ s->data.t1.minus] -= s->data.t1.val - temp;
+      else {
+        printf("Vraxukuklwma sthn phgh reumatos panw sth geiwsh\n");
+        exit(0);
+      }
+      
+
     }
-    else if ( s->data.type == V && s->data.t1.val>0 ) {
-      RHS[ max_nodes + s->data.t1.id ] = s->data.t1.val;
+    else if ( s->data.type == V && s->data.t1.is_ground == 0 ) {
+      if ( t >= 0 )
+        temp = calculate_ac(s->data.t1.transient, t);
+      RHS[ max_nodes + s->data.t1.id ] = s->data.t1.val + temp;
     }
   }
 
@@ -704,9 +811,9 @@ int circuit_rename_nodes(struct components_t *circuit, struct instruction_t *ins
 
 void solve(double *L, double *U, double *temp, double *result,
     double *RHS,
-    int *P, int max_nodes, int sources)
+    int *P, int max_nodes, int sources, double t)
 {
-  calculate_RHS(g_components,max_nodes,sources,RHS);
+  calculate_RHS(g_components,max_nodes,sources,RHS, t);
   forward_substitution(L, RHS, temp ,P, max_nodes + sources);
   backward_substitution(U, temp, result, max_nodes+sources);
 }
@@ -754,7 +861,7 @@ int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int source
 
           s->data.t1.val = dummy;
           printf("Solving for Voltage Source value %g\n",dummy);
-          calculate_RHS(g_components,max_nodes,sources,RHS);
+          calculate_RHS(g_components,max_nodes,sources,RHS, -1);
           if ( iter_type == NoIter ) {
             if ( spd_flag == 0 ) 
               cs_lusol(S, N, RHS, result, (max_nodes+sources));
@@ -796,7 +903,7 @@ int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int source
           s->data.t1.val = dummy;
           printf("Solve for Current Source value %g\n",dummy);
 
-          calculate_RHS(g_components,max_nodes,sources,RHS);
+          calculate_RHS(g_components,max_nodes,sources,RHS, -1);
           if ( iter_type == NoIter ) {
             if ( spd_flag == 0 ) 
               cs_lusol(S, N, RHS, result, (max_nodes+sources));
@@ -866,9 +973,9 @@ int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int 
           s->data.t1.val = dummy;
           printf("Solving for Voltage Source value %g\n",dummy);
           if ( iter_type == NoIter )
-            solve(L,U,temp,result,RHS,P,max_nodes,sources);
+            solve(L,U,temp,result,RHS,P,max_nodes,sources, -1);
           else {
-            calculate_RHS(g_components,max_nodes,sources,RHS);
+            calculate_RHS(g_components,max_nodes,sources,RHS, -1);
             memset(result, 0, sizeof(double) * ( max_nodes+sources));
             if ( iter_type == CG ) {
               conjugate(MNA, result , RHS, m, itol, max_nodes+sources);
@@ -905,9 +1012,9 @@ int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int 
 
 
           if ( iter_type == NoIter ) {
-            solve(L,U,temp,result,RHS,P,max_nodes,sources);
+            solve(L,U,temp,result,RHS,P,max_nodes,sources,-1);
           } else {
-            calculate_RHS(g_components,max_nodes,sources,RHS);
+            calculate_RHS(g_components,max_nodes,sources,RHS, -1);
             memset(result, 0, sizeof(double) * ( max_nodes+sources));
             if ( iter_type == CG ) {
               conjugate(MNA, result , RHS, m, itol, max_nodes+sources);
@@ -1001,7 +1108,7 @@ int execute_instructions(double *MNA_G, double *MNA_C, cs *MNA_sparse_G, cs *MNA
         calculate_transpose(L, U, max_nodes + sources );
       }
 
-      solve(L,U,temp,dc_point,RHS,P,max_nodes,sources);
+      solve(L,U,temp,dc_point,RHS,P,max_nodes,sources, -1);
       printf("Circuit Solution\n");
       print_array(dc_point, max_nodes+sources);
 
@@ -1011,7 +1118,7 @@ int execute_instructions(double *MNA_G, double *MNA_C, cs *MNA_sparse_G, cs *MNA
       for (i=0; i<max_nodes+sources; i++ ) 
         m[i] = MNA_G[i*(max_nodes+sources)+i];
 
-      calculate_RHS(g_components,max_nodes,sources,RHS);
+      calculate_RHS(g_components,max_nodes,sources,RHS, -1);
       biconjugate(MNA_G, dc_point, RHS, m, itol, max_nodes+sources);
       printf("Circuit Solution\n");
       print_array(dc_point, max_nodes+sources);
@@ -1019,7 +1126,7 @@ int execute_instructions(double *MNA_G, double *MNA_C, cs *MNA_sparse_G, cs *MNA
   } else {
     MNA_compressed_G = cs_compress(MNA_sparse_G);
     cs_spfree(MNA_sparse_G);
-    calculate_RHS(g_components,max_nodes,sources,RHS);
+    calculate_RHS(g_components,max_nodes,sources,RHS,-1);
     if ( iter_type == NoIter ) {
       // Sparse Matrices
 
