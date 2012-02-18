@@ -110,13 +110,13 @@ void biconjugate_sparse(cs *A, double *x, double *b, double *m, double itol, int
   
   cs_gaxpy(A, x, p);
 
-  printf("MY m\n");
+  /*printf("MY m\n");
   for ( i=0; i<size; i++ )
     printf("%g ", m[i]);
   printf("\n");
 
   printf("MY p\n");
-  print_array(p,size);
+  print_array(p,size);*/
 
   sub_vectors(b, p, r, size);
   memcpy(rtilde, r, size*sizeof(double));
@@ -148,8 +148,8 @@ void biconjugate_sparse(cs *A, double *x, double *b, double *m, double itol, int
     cs_gaxpy(A,p,Ap);
     cs_gaxpy_transpose(A,ptilde,Aptilde);
       
-    printf("step %d\nAp\n",i);
-    print_array(Ap, size);
+    /*printf("step %d\nAp\n",i);
+    print_array(Ap, size);*/
     
     
     alpha = rsnew/dot_vectors(ptilde,Ap,size);

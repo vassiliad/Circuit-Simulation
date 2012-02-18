@@ -95,7 +95,7 @@ void circuit_print(struct components_t *circuit)
       case V:
         printf("V"); 
         printf("%d +:%d -:%d v:%lf\tis ground:%s\n", s->data.t1.id, s->data.t1.plus, s->data.t1.minus, s->data.t1.val,
-            (s->data.t1.is_ground ? "yes" : "no"));
+            (s->data.t1.val==0 ? "yes" : "no"));
         break;
       case I:
         printf("I");
@@ -161,16 +161,17 @@ void circuit_cleanup(struct components_t *circuit)
 
 }
 
-void circuit_mna_sparse(struct components_t *circuit, cs** MNA, int *max_nodes, int *sources,
+void circuit_mna_sparse(struct components_t *circuit, cs** MNA_G, cs** MNA_C, int *max_nodes, int *sources,
     int element_types[], int **renamed_nodes)
 {
+  int transient_analysis = 0;
   struct components_t *s, *p;
+  struct instruction_t *w;
   int max_v_id;
-  int  elements;
-  int converted_l = 0;
+  int  elements, non_zero = 0;
+  int x,y,c;
 
-  int non_zero = 0;
-
+  int inductors = 0;
   // arxika metatrepw tous puknwtes se anoixtokuklwma ( tous afairw apo to kuklwma )
   // kai ta phnia se vraxukuklwma, ta antika8istw me phges tashs 
 
@@ -183,99 +184,86 @@ void circuit_mna_sparse(struct components_t *circuit, cs** MNA, int *max_nodes, 
     switch(s->data.type) {
       case V:
         max_v_id = ( s->data.t1.id > max_v_id ? s->data.t1.id : max_v_id );
-        if ( s->data.t1.is_ground==0 )
+        if ( s->data.t1.val > 0 )
           (*sources)++;
+        non_zero ++;
         break;
       case R:
+        if ( s->data.t1.plus == *max_nodes || s->data.t1.minus == *max_nodes)
+          non_zero++;
+        else
+          non_zero+=4;
         elements++;
+        break;
+      case L:
+        inductors++;
         break;
     }
 
     s = s->next;
   }
 
-  s = g_components;
-
-  while ( s ) {
-
-    if ( s->data.type == C ) {
-      if ( s->prev ) {
-        p = s->prev;
-        s->prev->next = s->next;
-        if ( s->next )
-          s->next->prev = s->prev;
-        free(s);
-        s = p;
-      } else {
-        p = s->next;
-        free(s);
-        s=p;
-        s->prev = NULL;
-      }
-
-    } else if ( s->data.type == L ) {
-      s->data.type = V;
-      s->data.t1.id = ++max_v_id;
-      s->data.t1.val = 0;
-      s->data.t1.is_ground = 0;
-      converted_l++;
-    }
-
-    s = s->next;
-  }
-
-  *sources += converted_l;
+  *sources += inductors;
   circuit_rename_nodes(g_components, g_instructions, element_types, renamed_nodes, max_nodes );
   circuit_print(g_components);
-  printf("converted (l to v): %d\n", converted_l);
-  printf("total sources: %d\nnodes : %d\n", *sources, *max_nodes);
+  printf("inductors         : %d\n", inductors);
+  printf("sources           : %d\n"
+      "nodes             : %d\n", *sources-inductors, *max_nodes);
+  printf("artificial sources: %d\n", *sources);
 
-  // metra ta mh mhdenika stoixeia gia na arxikopoihsw ton pinaka
-
-  for ( s=circuit; s; s=s->next ) {
-    if ( s->data.type == R ) {
-      if ( s->data.t1.plus == *max_nodes || s->data.t1.minus == *max_nodes) {
-        non_zero++;
-      } else
-        non_zero+=4;
-    } else if ( s->data.type == V ) {
-      non_zero ++;
+  for ( w = g_instructions; w; w=w->next ){
+    if ( w->type == Tran ) {
+      transient_analysis = 1;
+      break;
     }
   }
 
-  *MNA = cs_spalloc(*max_nodes+*sources, *max_nodes+ *sources, non_zero, 1,1);
+
+  *MNA_G = cs_spalloc(*max_nodes+*sources, *max_nodes+ *sources, non_zero, 1,1);
+
+  if ( transient_analysis )
+    *MNA_C= cs_spalloc(*max_nodes+*sources, *max_nodes+ *sources, non_zero, 1,1);
 
   // meta ftiaxnoume to panw aristera elements x elements pou einai ta pa8htika stoixeia
   for (s=circuit; s!=NULL ;s=s->next) {
     if ( s->data.type == R ) {
       if ( s->data.t1.plus < *max_nodes) {
-        cs_add_to_entry(*MNA, s->data.t1.plus, s->data.t1.plus,1/s->data.t1.val);
+        cs_add_to_entry(*MNA_G, s->data.t1.plus, s->data.t1.plus,1/s->data.t1.val);
       } if ( s->data.t1.minus < *max_nodes ) {
-        cs_add_to_entry(*MNA, s->data.t1.minus, s->data.t1.minus, 1/s->data.t1.val);
+        cs_add_to_entry(*MNA_G, s->data.t1.minus, s->data.t1.minus, 1/s->data.t1.val);
       } if ( s->data.t1.minus < *max_nodes && s->data.t1.plus < *max_nodes ) {
-        cs_add_to_entry(*MNA, s->data.t1.minus, s->data.t1.plus, -1/s->data.t1.val);
-        cs_add_to_entry(*MNA, s->data.t1.plus, s->data.t1.minus, -1/s->data.t1.val);      
-      }
+        cs_add_to_entry(*MNA_G, s->data.t1.minus, s->data.t1.plus, -1/s->data.t1.val);
+        cs_add_to_entry(*MNA_G, s->data.t1.plus, s->data.t1.minus, -1/s->data.t1.val);
+      } 
+    } else if ( transient_analysis == 1 && s->data.type == C ) {
+      if ( s->data.t1.plus < *max_nodes) {
+        cs_add_to_entry(*MNA_C, s->data.t1.plus, s->data.t1.plus, s->data.t1.val);
+      } if ( s->data.t1.minus < *max_nodes ) {
+        cs_add_to_entry(*MNA_C, s->data.t1.minus, s->data.t1.minus, s->data.t1.val);
+      } if ( s->data.t1.minus < *max_nodes && s->data.t1.plus < *max_nodes ) {
+        cs_add_to_entry(*MNA_C, s->data.t1.minus, s->data.t1.plus, -s->data.t1.val);
+        cs_add_to_entry(*MNA_C, s->data.t1.plus, s->data.t1.minus, -s->data.t1.val);
+      } 
+    } else if ( transient_analysis && s->data.type == L ) {
+      cs_entry(*MNA_C, *max_nodes+*sources-inductors +s->data.t1.id, 
+          *max_nodes+*sources-inductors+s->data.t1.id, - s->data.t1.val);
     }
-  }
 
-
-  for ( s=circuit; s!=NULL; s=s->next ) {
-    if ( s->data.type == V && s->data.t1.is_ground == 0 ) {
+    if ( (s->data.type == V && s->data.t1.val>0) || s->data.type == L ) {
       if ( s->data.t1.plus < *max_nodes ) {
-        cs_entry(*MNA, s->data.t1.plus, *max_nodes + s->data.t1.id, 1.0 );
-        cs_entry(*MNA, *max_nodes + s->data.t1.id,s->data.t1.plus, 1.0 );
+        cs_entry(*MNA_G, *max_nodes + s->data.t1.id, s->data.t1.plus, 1.0 );
+        cs_entry(*MNA_G, s->data.t1.plus, *max_nodes + s->data.t1.id, 1.0 );
       }
       if ( s->data.t1.minus < *max_nodes ) {
-        cs_entry(*MNA, s->data.t1.minus, *max_nodes + s->data.t1.id, -1.0 );
-        cs_entry(*MNA, *max_nodes + s->data.t1.id,s->data.t1.minus, -1.0 );
+        cs_entry(*MNA_G, *max_nodes + s->data.t1.id,s->data.t1.minus, -1.0 );
+        cs_entry(*MNA_G, s->data.t1.minus, *max_nodes + s->data.t1.id, -1.0 );
       }
     }
+
   }
-
-
-  printf("MNA matrix: see file \"mna_analysis\"\n" );
-  cs_print_formated(*MNA, "mna_analysis", *max_nodes+*sources);
+  cs_print_formated(*MNA_G, "mna_analysis", *max_nodes+*sources);
+  if (transient_analysis)
+    cs_print_formated(*MNA_C, "mna_analysis_transient", *max_nodes+*sources);
 }
 
 void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, int *max_nodes, int *sources,
@@ -289,7 +277,7 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
   int x,y,c;
   double *matrix, *matrix2;
 
-  int converted_l = 0;
+  int inductors = 0;
   // arxika metatrepw tous puknwtes se anoixtokuklwma ( tous afairw apo to kuklwma )
   // kai ta phnia se vraxukuklwma, ta antika8istw me phges tashs 
 
@@ -302,63 +290,38 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
     switch(s->data.type) {
       case V:
         max_v_id = ( s->data.t1.id > max_v_id ? s->data.t1.id : max_v_id );
-        if ( s->data.t1.is_ground==0 )
+        if ( s->data.t1.val > 0 )
           (*sources)++;
         break;
       case R:
         elements++;
         break;
+      case L:
+        inductors++;
+        break;
     }
 
     s = s->next;
   }
 
-  s = g_components;
-
-  while ( s ) {
-
-    if ( s->data.type == C ) {
-      /*if ( s->prev ) {
-        p = s->prev;
-        s->prev->next = s->next;
-        if ( s->next )
-          s->next->prev = s->prev;
-        free(s);
-        s = p;
-      } else {
-        p = s->next;
-        free(s);
-        s=p;
-        s->prev = NULL;
-      }*/
-
-    } else if ( s->data.type == L ) {
-      /*s->data.type = V;
-      s->data.t1.id = ++max_v_id;
-      s->data.t1.val = 0;
-      s->data.t1.is_ground = 0;*/
-      converted_l++;
-    }
-
-    s = s->next;
-  }
-
-  *sources += converted_l;
+  *sources += inductors;
   circuit_rename_nodes(g_components, g_instructions, element_types, renamed_nodes, max_nodes );
   circuit_print(g_components);
-  printf("converted (l to v): %d\n", converted_l);
-  printf("total sources: %d\nnodes : %d\n", *sources, *max_nodes);
-  
+  printf("inductors         : %d\n", inductors);
+  printf("sources           : %d\n"
+      "nodes             : %d\n", *sources-inductors, *max_nodes);
+  printf("artificial sources: %d\n", *sources);
+
   for ( w = g_instructions; w; w=w->next ){
     if ( w->type == Tran ) {
       transient_analysis = 1;
       break;
     }
   }
-  
-  
+
+
   *MNA_G= (double*) calloc((*max_nodes+*sources)*(*max_nodes+*sources), sizeof(double));
-  
+
 
   if ( transient_analysis )
     *MNA_C= (double*) calloc((*max_nodes+*sources)*(*max_nodes+*sources), sizeof(double));
@@ -387,20 +350,11 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
         matrix2[ s->data.t1.plus + s->data.t1.minus*(*max_nodes+*sources)] -= s->data.t1.val;
       }
     } else if ( transient_analysis && s->data.type == L ) {
-      matrix2[*max_nodes+*sources-converted_l +s->data.t1.id 
-              + (*max_nodes+*sources)*(*max_nodes+*sources-converted_l+s->data.t1.id)] = - s->data.t1.val;
+      matrix2[*max_nodes+*sources-inductors +s->data.t1.id 
+        + (*max_nodes+*sources)*(*max_nodes+*sources-inductors+s->data.t1.id)] = - s->data.t1.val;
     }
 
-  }
-
-  for (c=0; c<*sources; c++ ) {
-    matrix[*max_nodes*(*max_nodes+*sources) +c] = 0.0;
-    matrix[c * (*max_nodes+*sources) + *max_nodes] = 0.0;
-  }
-
-
-  for ( s=circuit; s!=NULL; s=s->next ) {
-    if ( (s->data.type == V && s->data.t1.is_ground == 0) || s->data.type == L ) {
+    if ( s->data.type == V  || s->data.type == L ) {
       if ( s->data.t1.plus < *max_nodes ) {
         matrix[ *max_nodes + s->data.t1.id + (*max_nodes+*sources) * s->data.t1.plus ] = 1;
         matrix[ ( *max_nodes + s->data.t1.id ) * (*max_nodes+*sources) + s->data.t1.plus ] = 1;
@@ -410,22 +364,19 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
         matrix[ ( *max_nodes + s->data.t1.id ) * (*max_nodes+*sources) + s->data.t1.minus] = -1;
       }
     }
-
   }
-
-  
 
   FILE* mna = fopen("mna_analysis", "w");
 
   printf("MNA matrix: see file \"mna_analysis\"\n" );
 
   for (y= 0; y < *max_nodes+*sources; y++ ) {
-    if ( y == *max_nodes )
-      fprintf(mna, "\n");
+    /*if ( y == *max_nodes )
+      fprintf(mna, "\n");*/
     for ( x=0; x < *max_nodes+*sources; x++ ) {
-      if ( x == *max_nodes )
-        fprintf(mna, "  ");
-      fprintf(mna, "%10g ", matrix[x + y*(*max_nodes+*sources)] );
+      /*if ( x == *max_nodes )
+        fprintf(mna, "  ");*/
+      fprintf(mna, "%10g", matrix[x + y*(*max_nodes+*sources)] );
 
     }
     fprintf(mna, "\n");
@@ -438,12 +389,12 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
     printf("MNA matrix: see file \"mna_analysis_transient\"\n" );
 
     for (y= 0; y < *max_nodes+*sources; y++ ) {
-      if ( y == *max_nodes )
-        fprintf(mna, "\n");
+      /*if ( y == *max_nodes )
+        fprintf(mna, "\n");*/
       for ( x=0; x < *max_nodes+*sources; x++ ) {
-        if ( x == *max_nodes )
-          fprintf(mna, "  ");
-        fprintf(mna, "%10g ", matrix2[x + y*(*max_nodes+*sources)] );
+        /*if ( x == *max_nodes )
+          fprintf(mna, "  ");*/
+        fprintf(mna, "%10g", matrix2[x + y*(*max_nodes+*sources)] );
 
       }
       fprintf(mna, "\n");
@@ -468,7 +419,7 @@ int calculate_RHS(struct components_t *circuit,int max_nodes,int sources, double
       else
         RHS[ s->data.t1.minus] -= s->data.t1.val;
     }
-    else if ( s->data.type == V && s->data.t1.is_ground == 0 ) {
+    else if ( s->data.type == V && s->data.t1.val>0 ) {
       RHS[ max_nodes + s->data.t1.id ] = s->data.t1.val;
     }
   }
@@ -502,7 +453,7 @@ int circuit_rename_nodes(struct components_t *circuit, struct instruction_t *ins
   for (s=circuit; s!=NULL; s=s->next) {
     switch( s->data.type ) {
       case V:
-        if ( s->data.t1.is_ground == 1)
+        if ( s->data.t1.val == 0 )
           ground = s;
         else {
           voltage_sources = (int*) realloc(voltage_sources, sizeof(int)*(num_voltage_sources+1) );
@@ -986,7 +937,7 @@ int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int 
 }
 
 
-int execute_instructions(double *MNA_G, double *MNA_C, cs *MNA_sparse, int max_nodes, int sources, int *renamed_nodes, int stoixeia[])
+int execute_instructions(double *MNA_G, double *MNA_C, cs *MNA_sparse_G, cs *MNA_sparse_C, int max_nodes, int sources, int *renamed_nodes, int stoixeia[])
 {
   double *RHS = NULL;
   double *L=NULL,*U=NULL,*result=NULL, *m=NULL, *temp=NULL;
@@ -995,7 +946,7 @@ int execute_instructions(double *MNA_G, double *MNA_C, cs *MNA_sparse, int max_n
   struct instruction_t *instr;
 
   // Gia tous sparse pinakes
-  cs *MNA_compressed = NULL;
+  cs *MNA_compressed_G = NULL, *MNA_compressed_C = NULL;
   css *S =  NULL;
   csn *N = NULL;
 
@@ -1060,33 +1011,34 @@ int execute_instructions(double *MNA_G, double *MNA_C, cs *MNA_sparse, int max_n
       for (i=0; i<max_nodes+sources; i++ ) 
         m[i] = MNA_G[i*(max_nodes+sources)+i];
 
+      calculate_RHS(g_components,max_nodes,sources,RHS);
       biconjugate(MNA_G, dc_point, RHS, m, itol, max_nodes+sources);
       printf("Circuit Solution\n");
       print_array(dc_point, max_nodes+sources);
     }
   } else {
-    MNA_compressed = cs_compress(MNA_sparse);
-    cs_spfree(MNA_sparse);
+    MNA_compressed_G = cs_compress(MNA_sparse_G);
+    cs_spfree(MNA_sparse_G);
+    calculate_RHS(g_components,max_nodes,sources,RHS);
     if ( iter_type == NoIter ) {
       // Sparse Matrices
 
       if ( spd_flag == 0 ) {
         // edw exw LU
-        S = cs_sqr (2, MNA_compressed, 0) ;              /* ordering and symbolic analysis */
-        N = cs_lu (MNA_compressed, S, 1) ;                 /* numeric LU factorization */
-        cs_spfree(MNA_compressed);
-        MNA_compressed = NULL;
-        calculate_RHS(g_components,max_nodes,sources,RHS);
-        cs_lusol(S, N, RHS, result, (max_nodes+sources));
+        S = cs_sqr (2, MNA_compressed_G, 0) ;              /* ordering and symbolic analysis */
+        N = cs_lu (MNA_compressed_G, S, 1) ;                 /* numeric LU factorization */
+        cs_spfree(MNA_compressed_G);
+        MNA_compressed_G = NULL;
+        cs_lusol(S, N, RHS, dc_point, (max_nodes+sources));
         printf("Circuit Solution\n");
         print_array(dc_point, max_nodes+sources);
 
       } else {
         // edw exw cholesky
-        S = cs_schol(1,MNA_compressed);
-        N = cs_chol(MNA_compressed,S);
-        cs_spfree(MNA_compressed);
-        MNA_compressed = NULL;
+        S = cs_schol(1,MNA_compressed_G);
+        N = cs_chol(MNA_compressed_G,S);
+        cs_spfree(MNA_compressed_G);
+        MNA_compressed_G = NULL;
         cs_cholsol(S, N, RHS, dc_point, (max_nodes+sources));
         printf("Circuit Solution\n");
         print_array(dc_point, max_nodes+sources);
@@ -1095,9 +1047,9 @@ int execute_instructions(double *MNA_G, double *MNA_C, cs *MNA_sparse, int max_n
       m = (double*) malloc(sizeof(double) * (max_nodes+sources));
 
       for (i=0; i<max_nodes+sources; i++ ) 
-        m[i] = cs_atxy(MNA_compressed, i, i );
+        m[i] = cs_atxy(MNA_compressed_G, i, i );
 
-      biconjugate_sparse(MNA_compressed, dc_point, RHS, m, itol, max_nodes+sources);
+      biconjugate_sparse(MNA_compressed_G, dc_point, RHS, m, itol, max_nodes+sources);
       printf("Circuit Solution\n");
       print_array(dc_point, max_nodes+sources);
     }
@@ -1112,7 +1064,7 @@ int execute_instructions(double *MNA_G, double *MNA_C, cs *MNA_sparse, int max_n
             MNA_G, RHS, L, U, m, P, temp, result);
       } else {
         instruction_dc_sparse(instr, max_nodes, sources, renamed_nodes,
-            RHS, S, N, MNA_compressed ,m, result);
+            RHS, S, N, MNA_compressed_G,m, result);
       }
     }
     instr = instr->next;
@@ -1125,8 +1077,11 @@ int execute_instructions(double *MNA_G, double *MNA_C, cs *MNA_sparse, int max_n
     cs_sfree(S);
   if ( N ) 
     cs_nfree(N);
-  if ( MNA_compressed )
-    cs_spfree(MNA_compressed);
+  if ( MNA_compressed_G )
+    cs_spfree(MNA_compressed_G);
+
+  if ( MNA_compressed_C )
+    cs_spfree(MNA_compressed_C);
 
   if ( m ) free(m);
   if ( L ) free(L);
@@ -1146,11 +1101,11 @@ int main(int argc, char* argv[])
 {
   int ret;
   double *MNA_G=NULL, *MNA_C=NULL;
-  cs *MNA_sparse = NULL;
+  cs *MNA_sparse_G=NULL, *MNA_sparse_C = NULL;
   int max_nodes, sources, *renamed_nodes;
   int stoixeia[8] = { 0,0,0,0,0,0,0,0 };
   struct option_t *o;
-
+  use_sparse = 0 ;
   g_instructions = NULL;
   g_components = NULL;
   g_options = NULL;
@@ -1201,9 +1156,11 @@ int main(int argc, char* argv[])
   if ( use_sparse==0 )
     circuit_mna(g_components,&MNA_G, &MNA_C,&max_nodes,&sources, stoixeia, &renamed_nodes);
   else
-    circuit_mna_sparse(g_components,&MNA_sparse,&max_nodes,&sources, stoixeia, &renamed_nodes);
+    circuit_mna_sparse(g_components,&MNA_sparse_G, &MNA_sparse_C,&max_nodes,
+      &sources, stoixeia, &renamed_nodes);
 
-  execute_instructions(MNA_G, MNA_C, MNA_sparse, max_nodes, sources, renamed_nodes, stoixeia);
+  execute_instructions(MNA_G, MNA_C, MNA_sparse_G, MNA_sparse_C, max_nodes,
+      sources, renamed_nodes, stoixeia);
 
   circuit_cleanup(g_components);
   instructions_cleanup(g_instructions);

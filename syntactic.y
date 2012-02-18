@@ -109,7 +109,6 @@ input_file: entries {
   // add ground
   ground->data.type = V;
 	new_t1(&(ground->data.t1),-1, 0, 0,0);
-  ground->data.t1.is_ground = 1;
 
   if ( s ) 
     s ->next = ground;
@@ -586,8 +585,6 @@ void new_t1(struct T1_t* ret, int id, int plus, int minus, double val)
 	ret->plus = plus;
 	ret->minus = minus;
 	ret->val = val;
-	ret->is_ground = 0; // auto einai gia tis phges taseis se ola ta alla
-											// den exei shmasia h timh tou
 }
 
 /*****Helper func, to init the struct*****/
