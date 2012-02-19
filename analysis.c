@@ -13,11 +13,218 @@ extern int spd_flag;
 extern int iter_type;
 extern double itol;
 extern int use_sparse;
-extern double *dc_point;
+extern int transient_method;
+static double *dc_point;
 extern struct components_t *g_components;
 extern struct instruction_t *g_instructions;
 extern struct option_t *g_options;
 
+int instruction_tran_tr(struct instruction_t *instr, int max_nodes, int sources, 
+    double *MNA_G, double *MNA_C, double *RHS, double *L, 
+    double *U, double *m, int *P,double *temp)
+{
+  struct instruction_t *ptr;
+  double t;
+  int i,j;
+
+  double *matrix = (double*) malloc(sizeof(double)*(max_nodes+sources)*(max_nodes+sources));
+  double *matrix2 = (double*) malloc(sizeof(double)*(max_nodes+sources)*(max_nodes+sources));
+  double *solution_0 = (double*) malloc(sizeof(double)*(max_nodes+sources));
+  double *solution_1 = (double*) malloc(sizeof(double)*(max_nodes+sources));
+  double *RHS_0 = (double*) malloc(sizeof(double)*(max_nodes+sources));
+  double *RHS_1 = (double*) malloc(sizeof(double)*(max_nodes+sources));
+  double *swap;
+
+  for (i=0; i<max_nodes+sources; i++ )
+    for ( j=0; j<max_nodes+sources; j++ )
+      temp[i*(max_nodes+sources)+j] = MNA_G[ P[i]*(max_nodes+sources)+j];
+  
+  swap = temp;
+  temp = MNA_G;
+  MNA_G = swap;
+
+  memcpy(RHS_0, RHS, sizeof(double)*(max_nodes+sources));
+  memcpy(solution_0, dc_point, sizeof(double)*(max_nodes+sources));
+
+  matrix_multiply_scalar(MNA_C, MNA_C, 2/instr->tran.time_step, max_nodes+sources);
+  matrix_add_matrix(matrix, MNA_G, MNA_C, (max_nodes+sources));
+  matrix_sub_matrix(matrix2, MNA_G, MNA_C, (max_nodes+sources));
+  
+
+  for( i = 0 ; i < max_nodes + sources; i++ )
+    P[i] = i;
+
+  if ( iter_type == NoIter ) {
+    if ( spd_flag==0) 
+      LU_decomposition(matrix, L, U, P, max_nodes + sources );
+    else {
+      Choleski_LDU_Decomposition(matrix, L, max_nodes + sources );
+      calculate_transpose(L, U, max_nodes + sources );
+    }
+  } else {
+    for (i=0; i<max_nodes+sources; i++ ) 
+      m[i] = MNA_G[i*(max_nodes+sources)+i];
+  }
+
+  for ( t=instr->tran.time_step; t<=instr->tran.time_finish; t+= instr->tran.time_step ) {
+    calculate_RHS(g_components, max_nodes, sources, RHS_1, t);
+    multiply_matrix_vector(matrix2,solution_0, temp, max_nodes+sources);
+    add_vectors(RHS_0, RHS_1, RHS_0, max_nodes+sources);
+    sub_vectors(RHS_0, temp, RHS_0, max_nodes+sources);
+
+    if ( iter_type == NoIter ) {
+      forward_substitution(L, RHS_0, temp ,P, max_nodes + sources);
+      backward_substitution(U, temp, solution_1, max_nodes+sources);
+    } else {
+      memset(solution_1, 0, sizeof(double)*(max_nodes+sources));
+      if ( iter_type==CG)
+        conjugate(matrix, solution_1, RHS_0, m, itol, max_nodes+sources);
+      else
+        biconjugate(matrix, solution_1, RHS_0, m, itol, max_nodes+sources);
+    }
+    printf("RHS: \n");
+
+    for (i=0; i< max_nodes + sources ;i++ )	
+      printf("%7g\n", RHS_0[i]);
+
+    printf("Result:\n");
+    print_array(solution_1,max_nodes+sources);
+
+    for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
+
+      if ( ptr->type == Plot ) {
+        for (j=0; j<ptr->plot.num; j++ )
+          fprintf( ptr->plot.output[j], "%7G %g\n", 
+              t, solution_1[ptr->plot.list[j]]);
+
+      }
+    }
+
+    swap = RHS_0;
+    RHS_0 = RHS_1;
+    RHS_1 = swap;
+
+    swap = solution_0;
+    solution_0 = solution_1;
+    solution_1 = swap;
+  }
+  
+  free(matrix);
+  free(matrix2);
+  free(solution_0);
+  free(solution_1);
+  free(RHS_0);
+  free(RHS_1);
+}
+
+int instruction_tran_be(struct instruction_t *instr, int max_nodes, int sources, 
+    double *MNA_G, double *MNA_C, double *RHS, double *L, 
+    double *U, double *m, int *P,double *temp)
+{
+  struct instruction_t *ptr;
+  double t;
+  int i,j;
+
+  double *matrix = (double*) malloc(sizeof(double)*(max_nodes+sources)*(max_nodes+sources));
+  double *solution_0 = (double*) malloc(sizeof(double)*(max_nodes+sources));
+  double *solution_1 = (double*) malloc(sizeof(double)*(max_nodes+sources));
+  double *RHS_0 = (double*) malloc(sizeof(double)*(max_nodes+sources));
+  double *RHS_1 = (double*) malloc(sizeof(double)*(max_nodes+sources));
+  double *swap;
+
+  for (i=0; i<max_nodes+sources; i++ )
+    for ( j=0; j<max_nodes+sources; j++ )
+      temp[i*(max_nodes+sources)+j] = MNA_G[ P[i]*(max_nodes+sources)+j];
+  
+  swap = temp;
+  temp = MNA_G;
+  MNA_G = swap;
+
+  memcpy(RHS_0, RHS, sizeof(double)*(max_nodes+sources));
+  memcpy(solution_0, dc_point, sizeof(double)*(max_nodes+sources));
+
+  matrix_multiply_scalar(MNA_C, MNA_C, 1/instr->tran.time_step, max_nodes+sources);
+  matrix_add_matrix(matrix, MNA_G, MNA_C, (max_nodes+sources));
+  
+
+  for( i = 0 ; i < max_nodes + sources; i++ )
+    P[i] = i;
+
+  if ( iter_type == NoIter ) {
+    if ( spd_flag==0) 
+      LU_decomposition(matrix, L, U, P, max_nodes + sources );
+    else {
+      Choleski_LDU_Decomposition(matrix, L, max_nodes + sources );
+      calculate_transpose(L, U, max_nodes + sources );
+    }
+  } else {
+    for (i=0; i<max_nodes+sources; i++ ) 
+      m[i] = MNA_G[i*(max_nodes+sources)+i];
+  }
+
+  for ( t=instr->tran.time_step; t<=instr->tran.time_finish; t+= instr->tran.time_step ) {
+    calculate_RHS(g_components, max_nodes, sources, RHS_1, t);
+    multiply_matrix_vector(MNA_C,solution_0, temp, max_nodes+sources);
+    add_vectors(RHS_0, RHS_1, temp, max_nodes+sources);
+
+    if ( iter_type == NoIter ) {
+      forward_substitution(L, RHS_0, temp ,P, max_nodes + sources);
+      backward_substitution(U, temp, solution_1, max_nodes+sources);
+    } else {
+      memset(solution_1, 0, sizeof(double)*(max_nodes+sources));
+      if ( iter_type==CG)
+        conjugate(matrix, solution_1, RHS_0, m, itol, max_nodes+sources);
+      else
+        biconjugate(matrix, solution_1, RHS_0, m, itol, max_nodes+sources);
+    }
+    printf("RHS: \n");
+
+    for (i=0; i< max_nodes + sources ;i++ )	
+      printf("%7g\n", RHS_0[i]);
+
+    printf("Result:\n");
+    print_array(solution_1,max_nodes+sources);
+
+    for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
+
+      if ( ptr->type == Plot ) {
+        for (j=0; j<ptr->plot.num; j++ )
+          fprintf( ptr->plot.output[j], "%7G %g\n", 
+              t, solution_1[ptr->plot.list[j]]);
+
+      }
+    }
+
+    swap = RHS_0;
+    RHS_0 = RHS_1;
+    RHS_1 = swap;
+
+    swap = solution_0;
+    solution_0 = solution_1;
+    solution_1 = swap;
+  }
+
+  free(matrix);
+  free(solution_0);
+  free(solution_1);
+  free(RHS_0);
+  free(RHS_1);
+
+}
+
+int instruction_tran(struct instruction_t *instr, int max_nodes, int sources, 
+    int renamed_nodes[], double *MNA_G, double *MNA_C, double *RHS, double *L, 
+    double *U, double *m, int *P,double *temp)
+{
+  if ( transient_method == TR ) {
+    instruction_tran_tr(instr, max_nodes, sources, MNA_G, MNA_C, RHS, L, U, m, P, temp);
+  } else if ( transient_method == BE ) {
+    instruction_tran_be(instr, max_nodes, sources, MNA_G, MNA_C, RHS, L, U, m, P, temp);
+  } else {
+    printf("Unknown transient method :%d\n", transient_method);
+    return -1;
+  }
+}
 
 
 void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, int *max_nodes, int *sources,
@@ -44,7 +251,7 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
     switch(s->data.type) {
       case V:
         max_v_id = ( s->data.t1.id > max_v_id ? s->data.t1.id : max_v_id );
-        if ( s->data.t1.val > 0 )
+        if ( s->data.t1.is_ground==0 )
           (*sources)++;
         break;
       case R:
@@ -108,7 +315,7 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
         + (*max_nodes+*sources)*(*max_nodes+*sources-inductors+s->data.t1.id)] = - s->data.t1.val;
     }
 
-    if ( s->data.type == V  || s->data.type == L ) {
+    if ( ( s->data.type == V && s->data.t1.is_ground == 0 )  || s->data.type == L ) {
       if ( s->data.t1.plus < *max_nodes ) {
         matrix[ *max_nodes + s->data.t1.id + (*max_nodes+*sources) * s->data.t1.plus ] = 1;
         matrix[ ( *max_nodes + s->data.t1.id ) * (*max_nodes+*sources) + s->data.t1.plus ] = 1;
@@ -119,6 +326,10 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
       }
     }
   }
+  
+
+  print_matrix(matrix, *max_nodes+*sources);
+  printf("asd;askjdklasjdhaksljh\n");
 
   FILE* mna = fopen("mna_analysis", "w");
 
@@ -295,34 +506,34 @@ int execute_instructions(double *MNA_G, double *MNA_C,  int max_nodes, int sourc
       LU_decomposition(MNA_G, L, U, P, max_nodes + sources );
     } else {
       if ( stoixeia[typeV] ) {
-	printf("[-] Den prepei na uparxoun phges Tashs\n");
-	return 0;
+        printf("[-] Den prepei na uparxoun phges Tashs\n");
+        return 0;
       }
 
       if ( stoixeia[typeL] ) {
-	printf("[-] Den prepei na uparxoun phnia\n");
-	return 0;
+        printf("[-] Den prepei na uparxoun phnia\n");
+        return 0;
       }
 
       if ( stoixeia[typeD] ) {
-	printf("[-] Den prepei na uparxoun diodoi\n");
-	return 0;
+        printf("[-] Den prepei na uparxoun diodoi\n");
+        return 0;
       }
 
       if ( stoixeia[typeQ] ) {
-	printf("[-] Den prepei na uparxoun transistor BJT \n");
-	return 0;
+        printf("[-] Den prepei na uparxoun transistor BJT \n");
+        return 0;
       }
 
       if ( stoixeia[typeM] ) {
-	printf("[-] Den prepei na uparxoun transistor CMOS\n");
-	return 0;
+        printf("[-] Den prepei na uparxoun transistor CMOS\n");
+        return 0;
       }
 
 
       if ( !Choleski_LDU_Decomposition(MNA_G, L, max_nodes + sources ) ) {
-	printf("[-] Negative value on array L\n");
-	exit(0);
+        printf("[-] Negative value on array L\n");
+        exit(0);
       }
 
       calculate_transpose(L, U, max_nodes + sources );
@@ -343,13 +554,20 @@ int execute_instructions(double *MNA_G, double *MNA_C,  int max_nodes, int sourc
     printf("Circuit Solution\n");
     print_array(dc_point, max_nodes+sources);
   }
-  
+
 
 
   while ( instr ) {
-    if(instr->type == Dc) {
-      instruction_dc(instr,max_nodes, sources, renamed_nodes, 
-	  MNA_G, RHS, L, U, m, P, temp, result); 
+    switch ( instr->type ) {
+      case Dc:
+        instruction_dc(instr,max_nodes, sources, renamed_nodes, 
+            MNA_G, RHS, L, U, m, P, temp, result); 
+        break;
+
+      case Tran:
+        instruction_tran(instr, max_nodes, sources, renamed_nodes,
+            MNA_G, MNA_C, RHS, L, U, m, P, temp);
+        break;
     }
     instr = instr->next;
   }

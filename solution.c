@@ -4,6 +4,32 @@
 #include<math.h>
 #include"csparse.h"
 
+void matrix_sub_matrix(double *output, double *a, double *b, int size)
+{
+  int i,j;
+
+  for ( i=0; i<size; i++ )
+    for ( j=0; j<size; j++ )
+      output[i*size+j] = a[i*size+j] - b[i*size+j];
+}
+void matrix_add_matrix(double *output, double *a, double *b, int size)
+{
+  int i,j;
+
+  for ( i=0; i<size; i++ )
+    for ( j=0; j<size; j++ )
+      output[i*size+j] = a[i*size+j] + b[i*size+j];
+}
+
+void matrix_multiply_scalar(double *output, double *input, double scalar, int size)
+{
+  int i,j;
+
+  for ( i=0; i<size; i++ )
+    for ( j=0; j<size; j++ )
+      output[i*size+j] = input[i*size+j] * scalar;
+}
+
 int transpose(double *input,double *output,int size){
 	int i,j;
 	for(i = 0 ; i < size ; i++)

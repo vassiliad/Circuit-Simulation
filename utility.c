@@ -48,8 +48,7 @@ double calculate_ac(const transient_spec_t *transient, double t)
 
     break;
     case Pulse:
-      if ( t > transient->pulse.per )
-        t-= transient->pulse.per;
+      t-= transient->pulse.per * (int)( t/transient->pulse.per);
 
       if ( t < transient->pulse.td ) {
         return transient->pulse.i1;
@@ -217,11 +216,7 @@ int calculate_RHS(struct components_t *circuit,int max_nodes,int sources, double
     }
   }
 
-  printf("RHS: \n");
-
-  for (y=0; y< max_nodes + sources ;y++ )	
-    printf("%7g\n", RHS[y]);
-  return 0;
+    return 0;
 }
 
 void print_help(char *path)
@@ -321,7 +316,7 @@ int circuit_rename_nodes(struct components_t *circuit, struct instruction_t *ins
   for (s=circuit; s!=NULL; s=s->next) {
     switch( s->data.type ) {
       case V:
-        if ( s->data.t1.val == 0 )
+        if ( s->data.t1.is_ground )
           ground = s;
         else {
           voltage_sources = (int*) realloc(voltage_sources, sizeof(int)*(num_voltage_sources+1) );

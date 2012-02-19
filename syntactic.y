@@ -337,7 +337,7 @@ description:V tail1 transient_spec
 	$$.type = V;
 	new_t1(&($$.t1),$1, $2.plus, $2.minus, $2.val);
 
-	if ( $2.val == 0 && $3==0) {
+	if ( $2.val == 0 && $3==NULL) {
     yyerror("Ground is at node 0");
     return 1;
   }

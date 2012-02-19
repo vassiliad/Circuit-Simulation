@@ -23,6 +23,10 @@ int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int 
     double *MNA, double *RHS, double *L, double *U, double *m, int *P,
     double *temp, double *result);
 
+int instruction_tran(struct instruction_t *instr, int max_nodes, int sources, int renamed_nodes[], 
+    double *MNA_G, double *MNA_C, double *RHS, double *L, double *U, double *m, int *P,
+    double *temp);
+
 int execute_instructions(double *MNA_G, double *MNA_C,  int max_nodes, int sources, int *renamed_nodes, int stoixeia[]);
 
 #endif

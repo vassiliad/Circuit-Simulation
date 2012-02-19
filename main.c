@@ -17,9 +17,10 @@ extern struct instruction_t *g_instructions;
 extern struct option_t *g_options;
 int spd_flag = 0;
 int iter_type = NoIter;
+int transient_method = TR;
 double itol = 0.001;
 int use_sparse = 0;
-double *dc_point=NULL;
+
 
 extern FILE * yyin;
 
@@ -34,7 +35,7 @@ int main(int argc, char* argv[])
   int ret;
   double *MNA_G=NULL, *MNA_C=NULL;
   cs *MNA_sparse_G=NULL, *MNA_sparse_C = NULL;
-  int max_nodes, sources, *renamed_nodes;
+  int max_nodes=0, sources=0, *renamed_nodes=NULL;
   int stoixeia[8] = { 0,0,0,0,0,0,0,0 };
   struct option_t *o;
   use_sparse = 0 ;
@@ -81,6 +82,18 @@ int main(int argc, char* argv[])
       case SPARSE:
         use_sparse = 1;
         break;
+
+      case BE:
+        transient_method = BE;
+        break;
+
+      case TR:
+        transient_method = TR;
+        break;
+
+      default:
+        printf("Unhandled option %d\n", o->type);
+        break;
     }
   }
 
@@ -88,16 +101,16 @@ int main(int argc, char* argv[])
   if ( use_sparse==0 ){
     circuit_mna(g_components,&MNA_G, &MNA_C,&max_nodes,&sources, stoixeia, &renamed_nodes);
     execute_instructions(MNA_G, MNA_C, max_nodes,
-      sources, renamed_nodes, stoixeia);    
+        sources, renamed_nodes, stoixeia);    
   }
   else{
     circuit_mna_sparse(g_components,&MNA_sparse_G, &MNA_sparse_C,&max_nodes,
-      &sources, stoixeia, &renamed_nodes);
-      execute_instructions_sparse(MNA_sparse_G, MNA_sparse_C, max_nodes,
-      sources, renamed_nodes, stoixeia);
+        &sources, stoixeia, &renamed_nodes);
+    execute_instructions_sparse(MNA_sparse_G, MNA_sparse_C, max_nodes,
+        sources, renamed_nodes, stoixeia);
 
   }
-  
+
   circuit_cleanup(g_components);
   instructions_cleanup(g_instructions);
   options_cleanup(g_options);
