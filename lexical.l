@@ -7,6 +7,10 @@
 #include "syntactic.tab.h"
 
 %}
+
+%option nounput
+%option noinput
+
 %%
 
 \*.*[\n]? { }

@@ -1,8 +1,8 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<math.h>
-#include"csparse.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "solution.h"
+#include <math.h>
 
 void matrix_sub_matrix(double *output, double *a, double *b, int size)
 {

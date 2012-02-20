@@ -19,7 +19,7 @@ extern struct components_t *g_components;
 extern struct instruction_t *g_instructions;
 extern struct option_t *g_options;
 
-int instruction_tran_tr(struct instruction_t *instr, int max_nodes, int sources, 
+void instruction_tran_tr(struct instruction_t *instr, int max_nodes, int sources, 
     double *MNA_G, double *MNA_C, double *RHS, double *L, 
     double *U, double *m, int *P,double *temp)
 {
@@ -67,7 +67,7 @@ int instruction_tran_tr(struct instruction_t *instr, int max_nodes, int sources,
   }
 
   for ( t=instr->tran.time_step; t<=instr->tran.time_finish; t+= instr->tran.time_step ) {
-    calculate_RHS(g_components, max_nodes, sources, RHS_1, t);
+    calculate_RHS(g_components, max_nodes, sources, RHS_1, t, 0);
     multiply_matrix_vector(matrix2,solution_0, temp, max_nodes+sources);
     add_vectors(RHS_0, RHS_1, RHS_0, max_nodes+sources);
     sub_vectors(RHS_0, temp, RHS_0, max_nodes+sources);
@@ -82,13 +82,14 @@ int instruction_tran_tr(struct instruction_t *instr, int max_nodes, int sources,
       else
         biconjugate(matrix, solution_1, RHS_0, m, itol, max_nodes+sources);
     }
-    printf("RHS: \n");
+    
+    /*printf("RHS: \n");
 
     for (i=0; i< max_nodes + sources ;i++ )	
-      printf("%7g\n", RHS_0[i]);
+      printf("%7g\n", RHS_0[i]);*/
 
-    printf("Result:\n");
-    print_array(solution_1,max_nodes+sources);
+    /*printf("Result:\n");
+    print_array(solution_1,max_nodes+sources);*/
 
     for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
 
@@ -117,7 +118,7 @@ int instruction_tran_tr(struct instruction_t *instr, int max_nodes, int sources,
   free(RHS_1);
 }
 
-int instruction_tran_be(struct instruction_t *instr, int max_nodes, int sources, 
+void instruction_tran_be(struct instruction_t *instr, int max_nodes, int sources, 
     double *MNA_G, double *MNA_C, double *RHS, double *L, 
     double *U, double *m, int *P,double *temp)
 {
@@ -163,7 +164,7 @@ int instruction_tran_be(struct instruction_t *instr, int max_nodes, int sources,
   }
 
   for ( t=instr->tran.time_step; t<=instr->tran.time_finish; t+= instr->tran.time_step ) {
-    calculate_RHS(g_components, max_nodes, sources, RHS_1, t);
+    calculate_RHS(g_components, max_nodes, sources, RHS_1, t, 0);
     multiply_matrix_vector(MNA_C,solution_0, temp, max_nodes+sources);
     add_vectors(RHS_0, RHS_1, temp, max_nodes+sources);
 
@@ -177,13 +178,14 @@ int instruction_tran_be(struct instruction_t *instr, int max_nodes, int sources,
       else
         biconjugate(matrix, solution_1, RHS_0, m, itol, max_nodes+sources);
     }
-    printf("RHS: \n");
+
+    /*printf("RHS: \n");
 
     for (i=0; i< max_nodes + sources ;i++ )	
-      printf("%7g\n", RHS_0[i]);
+      printf("%7g\n", RHS_0[i]);*/
 
-    printf("Result:\n");
-    print_array(solution_1,max_nodes+sources);
+    /*printf("Result:\n");
+    print_array(solution_1,max_nodes+sources);*/
 
     for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
 
@@ -212,7 +214,7 @@ int instruction_tran_be(struct instruction_t *instr, int max_nodes, int sources,
 
 }
 
-int instruction_tran(struct instruction_t *instr, int max_nodes, int sources, 
+void instruction_tran(struct instruction_t *instr, int max_nodes, int sources, 
     int renamed_nodes[], double *MNA_G, double *MNA_C, double *RHS, double *L, 
     double *U, double *m, int *P,double *temp)
 {
@@ -222,7 +224,6 @@ int instruction_tran(struct instruction_t *instr, int max_nodes, int sources,
     instruction_tran_be(instr, max_nodes, sources, MNA_G, MNA_C, RHS, L, U, m, P, temp);
   } else {
     printf("Unknown transient method :%d\n", transient_method);
-    return -1;
   }
 }
 
@@ -231,11 +232,10 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
     int element_types[], int **renamed_nodes)
 {
   int transient_analysis = 0;
-  struct components_t *s, *p;
+  struct components_t *s;
   struct instruction_t *w;
-  int max_v_id;
+  int max_v_id, x, y;
   int  elements;
-  int x,y,c;
   double *matrix, *matrix2;
 
   int inductors = 0;
@@ -372,9 +372,9 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
 
 void solve(double *L, double *U, double *temp, double *result,
     double *RHS,
-    int *P, int max_nodes, int sources, double t)
+    int *P, int max_nodes, int sources, double t, int dc_only)
 {
-  calculate_RHS(g_components,max_nodes,sources,RHS, t);
+  calculate_RHS(g_components,max_nodes,sources,RHS, t, dc_only);
   forward_substitution(L, RHS, temp ,P, max_nodes + sources);
   backward_substitution(U, temp, result, max_nodes+sources);
 }
@@ -409,9 +409,9 @@ int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int 
           s->data.t1.val = dummy;
           printf("Solving for Voltage Source value %g\n",dummy);
           if ( iter_type == NoIter )
-            solve(L,U,temp,result,RHS,P,max_nodes,sources, -1);
+            solve(L,U,temp,result,RHS,P,max_nodes,sources, -1, 1);
           else {
-            calculate_RHS(g_components,max_nodes,sources,RHS, -1);
+            calculate_RHS(g_components,max_nodes,sources,RHS, -1, 1);
             memset(result, 0, sizeof(double) * ( max_nodes+sources));
             if ( iter_type == CG ) {
               conjugate(MNA, result , RHS, m, itol, max_nodes+sources);
@@ -448,9 +448,9 @@ int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int 
 
 
           if ( iter_type == NoIter ) {
-            solve(L,U,temp,result,RHS,P,max_nodes,sources,-1);
+            solve(L,U,temp,result,RHS,P,max_nodes,sources,-1, 1);
           } else {
-            calculate_RHS(g_components,max_nodes,sources,RHS, -1);
+            calculate_RHS(g_components,max_nodes,sources,RHS, -1, 1);
             memset(result, 0, sizeof(double) * ( max_nodes+sources));
             if ( iter_type == CG ) {
               conjugate(MNA, result , RHS, m, itol, max_nodes+sources);
@@ -458,8 +458,9 @@ int instruction_dc(struct instruction_t *instr, int max_nodes, int sources, int 
               biconjugate(MNA, result , RHS, m, itol, max_nodes+sources);
             }
           }
-          printf("Result:\n");
-          print_array(result,max_nodes+sources);
+
+          /*printf("Result:\n");
+          print_array(result,max_nodes+sources);*/
 
           for (ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
 
@@ -539,7 +540,7 @@ int execute_instructions(double *MNA_G, double *MNA_C,  int max_nodes, int sourc
       calculate_transpose(L, U, max_nodes + sources );
     }
 
-    solve(L,U,temp,dc_point,RHS,P,max_nodes,sources, -1);
+    solve(L,U,temp,dc_point,RHS,P,max_nodes,sources, -1, 1);
     printf("Circuit Solution\n");
     print_array(dc_point, max_nodes+sources);
 
@@ -549,7 +550,7 @@ int execute_instructions(double *MNA_G, double *MNA_C,  int max_nodes, int sourc
     for (i=0; i<max_nodes+sources; i++ ) 
       m[i] = MNA_G[i*(max_nodes+sources)+i];
 
-    calculate_RHS(g_components,max_nodes,sources,RHS, -1);
+    calculate_RHS(g_components,max_nodes,sources,RHS, -1, 1);
     biconjugate(MNA_G, dc_point, RHS, m, itol, max_nodes+sources);
     printf("Circuit Solution\n");
     print_array(dc_point, max_nodes+sources);
@@ -568,6 +569,8 @@ int execute_instructions(double *MNA_G, double *MNA_C,  int max_nodes, int sourc
         instruction_tran(instr, max_nodes, sources, renamed_nodes,
             MNA_G, MNA_C, RHS, L, U, m, P, temp);
         break;
+      case Plot:
+      break;
     }
     instr = instr->next;
   }

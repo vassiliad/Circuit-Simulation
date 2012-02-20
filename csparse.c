@@ -1248,11 +1248,11 @@ int cs_reltol(cs *A, double tol) {
 double cs_atxy(cs *A, int x, int y)
 {
   int i;
-  csi p, j, n, *Ap, *Ai ;
+  csi *Ap, *Ai ;
   double *Ax ;
 
   if (!CS_CSC (A)) exit(0) ;       /* check inputs */
-  n = A->n ; Ap = A->p ; Ai = A->i ; Ax = A->x ;
+  Ap = A->p ; Ai = A->i ; Ax = A->x ;
   
   for ( i=Ap[y]; i < Ap[y+1] ; i++ ) {
     if ( Ai[i] == x )

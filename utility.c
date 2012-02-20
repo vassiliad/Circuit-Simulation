@@ -185,7 +185,7 @@ void circuit_print(struct components_t *circuit)
 }
 
 
-int calculate_RHS(struct components_t *circuit,int max_nodes,int sources, double *RHS, double t){
+int calculate_RHS(struct components_t *circuit,int max_nodes,int sources, double *RHS, double t, int dc_only){
   int y;
   struct components_t *s;
   double temp = 0;
@@ -195,7 +195,7 @@ int calculate_RHS(struct components_t *circuit,int max_nodes,int sources, double
 
   for (s=circuit; s!=NULL; s=s->next) {
     if ( s->data.type == I ) {
-      if ( t >= 0 )
+      if ( !dc_only ) 
         temp = calculate_ac(s->data.t1.transient, t);
 
       if ( s->data.t1.plus != max_nodes )
@@ -210,7 +210,7 @@ int calculate_RHS(struct components_t *circuit,int max_nodes,int sources, double
 
     }
     else if ( s->data.type == V && s->data.t1.is_ground == 0 ) {
-      if ( t >= 0 )
+      if ( !dc_only )
         temp = calculate_ac(s->data.t1.transient, t);
       RHS[ max_nodes + s->data.t1.id ] = s->data.t1.val + temp;
     }

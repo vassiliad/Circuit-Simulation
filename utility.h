@@ -24,7 +24,7 @@ double calculate_ac(const transient_spec_t *transient, double t);
 void options_cleanup(struct option_t *g_options);
 void instructions_cleanup(struct instruction_t *instr);
 void circuit_print(struct components_t *circuit);
-int calculate_RHS(struct components_t *circuit,int max_nodes,int sources, double *RHS, double t);
+int calculate_RHS(struct components_t *circuit,int max_nodes,int sources, double *RHS, double t, int dc_only);
 void print_help(char *path);
 void instructions_print(struct instruction_t *instr);
 void circuit_cleanup(struct components_t *circuit);

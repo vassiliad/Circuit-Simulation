@@ -5,6 +5,7 @@
 #include "types.h"
 #include "syntactic.tab.h"
 #include "solution.h"
+#include "utility.h"
 #include "csparse.h"
 
 static double *dc_point;
@@ -17,7 +18,7 @@ extern struct instruction_t *g_instructions;
 extern struct option_t *g_options;
 extern int transient_method;
 
-int instruction_sparse_tran_tr(struct instruction_t *instr, int max_nodes, int sources, 
+void instruction_sparse_tran_tr(struct instruction_t *instr, int max_nodes, int sources, 
     cs *MNA_G, cs *MNA_C, double *RHS, double *m)
 {
   struct instruction_t *ptr;
@@ -56,7 +57,7 @@ int instruction_sparse_tran_tr(struct instruction_t *instr, int max_nodes, int s
   }
   
   for ( t=instr->tran.time_step; t<=instr->tran.time_finish; t+= instr->tran.time_step ) {
-    calculate_RHS(g_components, max_nodes, sources, RHS_1, t);
+    calculate_RHS(g_components, max_nodes, sources, RHS_1, t, 0);
     
     memset(temp,0, sizeof(double)*(max_nodes+sources));
     cs_gaxpy(matrix2, solution_0, temp);
@@ -77,13 +78,13 @@ int instruction_sparse_tran_tr(struct instruction_t *instr, int max_nodes, int s
       }
     }
     
-    printf("RHS: \n");
+    /*printf("RHS: \n");
 
     for (i=0; i< max_nodes + sources ;i++ )	
-      printf("%7g\n", RHS_0[i]);
+      printf("%7g\n", RHS_0[i]);*/
 
-    printf("Result:\n");
-    print_array(solution_1,max_nodes+sources);
+    /*printf("Result:\n");
+    print_array(solution_1,max_nodes+sources);*/
 
     for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
 
@@ -113,7 +114,7 @@ int instruction_sparse_tran_tr(struct instruction_t *instr, int max_nodes, int s
 }
 
 
-int instruction_sparse_tran_be(struct instruction_t *instr, int max_nodes, int sources, 
+void instruction_sparse_tran_be(struct instruction_t *instr, int max_nodes, int sources, 
     cs *MNA_G, cs *MNA_C, double *RHS, double *m)
 {
  struct instruction_t *ptr;
@@ -143,8 +144,6 @@ int instruction_sparse_tran_be(struct instruction_t *instr, int max_nodes, int s
     MNA_C->x[i] /= instr->tran.time_step;
   }
 
-  cs_print(MNA_C, "eleos", 0);
-  cs_print(matrix, "skata",0);
 
   if ( iter_type == NoIter ) {
     if ( spd_flag == 0 ) {
@@ -163,7 +162,7 @@ int instruction_sparse_tran_be(struct instruction_t *instr, int max_nodes, int s
   }
   
   for ( t=instr->tran.time_step; t<=instr->tran.time_finish; t+= instr->tran.time_step ) {
-    calculate_RHS(g_components, max_nodes, sources, RHS_1, t);
+    calculate_RHS(g_components, max_nodes, sources, RHS_1, t,0);
     
     memset(temp,0, sizeof(double)*(max_nodes+sources));
     cs_gaxpy(MNA_C, solution_0, temp);
@@ -183,13 +182,13 @@ int instruction_sparse_tran_be(struct instruction_t *instr, int max_nodes, int s
       }
     }
     
-    printf("RHS: \n");
+    /*printf("RHS: \n");
 
     for (i=0; i< max_nodes + sources ;i++ )	
       printf("%7g\n", RHS_0[i]);
 
     printf("Result:\n");
-    print_array(solution_1,max_nodes+sources);
+    print_array(solution_1,max_nodes+sources); */
 
     for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
 
@@ -217,7 +216,7 @@ int instruction_sparse_tran_be(struct instruction_t *instr, int max_nodes, int s
   free(RHS_1);
 }
 
-int instruction_sparse_tran(struct instruction_t *instr, int max_nodes, int sources, 
+void instruction_sparse_tran(struct instruction_t *instr, int max_nodes, int sources, 
     cs *MNA_G, cs *MNA_C, double *RHS, double *m)
 {
   if ( transient_method == TR ) {
@@ -226,7 +225,6 @@ int instruction_sparse_tran(struct instruction_t *instr, int max_nodes, int sour
     instruction_sparse_tran_be(instr, max_nodes, sources, MNA_G, MNA_C, RHS, m);
   } else {
     printf("Unknown transient method :%d\n", transient_method);
-    return -1;
   }
 }
 
@@ -234,11 +232,10 @@ void circuit_mna_sparse(struct components_t *circuit, cs** MNA_G, cs** MNA_C, in
     int element_types[], int **renamed_nodes)
 {
   int transient_analysis = 0;
-  struct components_t *s, *p;
+  struct components_t *s ;
   struct instruction_t *w;
   int max_v_id;
   int  elements, non_zero = 0;
-  int x,y,c;
 
   int inductors = 0;
   // arxika metatrepw tous puknwtes se anoixtokuklwma ( tous afairw apo to kuklwma )
@@ -364,7 +361,7 @@ int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int source
 
           s->data.t1.val = dummy;
           printf("Solving for Voltage Source value %g\n",dummy);
-          calculate_RHS(g_components,max_nodes,sources,RHS, -1);
+          calculate_RHS(g_components,max_nodes,sources,RHS, -1, 1);
           if ( iter_type == NoIter ) {
             if ( spd_flag == 0 ) 
               cs_lusol(S, N, RHS, result, (max_nodes+sources));
@@ -379,8 +376,8 @@ int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int source
             }
           }
 
-          printf("Result:\n");
-          print_array(result,max_nodes+sources);
+          /*printf("Result:\n");
+          print_array(result,max_nodes+sources);*/
 
           for ( ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
 
@@ -406,7 +403,7 @@ int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int source
           s->data.t1.val = dummy;
           printf("Solve for Current Source value %g\n",dummy);
 
-          calculate_RHS(g_components,max_nodes,sources,RHS, -1);
+          calculate_RHS(g_components,max_nodes,sources,RHS, -1, 1);
           if ( iter_type == NoIter ) {
             if ( spd_flag == 0 ) 
               cs_lusol(S, N, RHS, result, (max_nodes+sources));
@@ -421,8 +418,8 @@ int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int source
             }
           }
 
-          printf("Result:\n");
-          print_array(result,max_nodes+sources);
+          /*printf("Result:\n");
+          print_array(result,max_nodes+sources);*/
 
           for (ptr = g_instructions; ptr!=NULL; ptr=ptr->next) {
 
@@ -474,7 +471,7 @@ int execute_instructions_sparse(cs *MNA_sparse_G, cs *MNA_sparse_C, int max_node
   
   
   cs_spfree(MNA_sparse_G);
-  calculate_RHS(g_components,max_nodes,sources,RHS,-1);
+  calculate_RHS(g_components,max_nodes,sources,RHS,-1, 1);
 
   if ( iter_type == NoIter ) {
     // Sparse Matrices
