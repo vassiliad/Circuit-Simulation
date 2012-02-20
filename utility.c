@@ -283,6 +283,13 @@ void circuit_cleanup(struct components_t *circuit)
       case Q:
         free(e->data.t4.model_name);
         break;
+      case V:
+      case I:
+        if ( e->data.t1.transient ) {
+          if ( e->data.t1.transient->type == Pwl )
+            free(e->data.t1.transient->pwl.pairs );
+          free(e->data.t1.transient);
+        }
     }
     p = e->next;
     free(e);

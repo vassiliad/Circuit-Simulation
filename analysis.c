@@ -585,6 +585,7 @@ int execute_instructions(double *MNA_G, double *MNA_C,  int max_nodes, int sourc
   if ( temp ) free(temp);
   if ( result) free(result);
   if ( MNA_G) free(MNA_G);
+  if ( MNA_C) free(MNA_C);
   if ( RHS ) free(RHS);
   if ( renamed_nodes ) free(renamed_nodes);
 

@@ -12,7 +12,7 @@ c6 3 4 0.1
 r7 8 0 1e3
 r8 4 0 10
 
-.option method=be
+.option sparse,method=tr
 
 .tran 0.1 300
 .plot V(5) V(1) V(4)
