@@ -6,6 +6,8 @@
 typedef struct NUMBER_T number_t;
 typedef struct TRANSIENT_SPEC_T transient_spec_t;
 
+enum Component { V, I , R , C, Q, M, D, L };
+
 /*gia V,I,R,C,L*/
 struct T1_t {
 		int id, original_id;

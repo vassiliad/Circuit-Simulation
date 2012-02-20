@@ -2,8 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "types.h"
 #include "syntactic.tab.h"
+
+#define IDS_CHUNK 1000
 
 #define YYERROR_VERBOSE 1
 extern int yylineno;
@@ -20,6 +23,14 @@ int compare_pair(const void *p1, const void *p2);
 struct components_t *g_components;
 struct instruction_t *g_instructions;
 struct option_t *g_options;
+
+int str_to_id(char *str);
+void free_ids();
+
+int num_ids = 0;
+int max_num_ids = 0;
+char **ids;
+
 
 %}
 
@@ -73,7 +84,7 @@ struct option_t *g_options;
 };
 
 
-%token V I R C L D Q M NUMBER NEW_LINE STR COMMA
+%token NUMBER NEW_LINE STR COMMA
 %token V2
 %token PLOT DC OPTION TRAN
 %token ASSIGN
@@ -81,14 +92,13 @@ struct option_t *g_options;
 %token EXP SIN PWL PULSE
 %token LPAREN RPAREN
 
-%type <str> STR
+%type <str> STR V2
 %type <description> description component
 %type <tail1> tail1
 %type <tail2> tail2
 %type <tail3> tail3
 %type <tail4> tail4
 %type <number> NUMBER;
-%type <id>V I R C L D Q M V2 
 %type <entries> entries;
 %type <instruction> instruction
 %type <num_list> v_sources_list
@@ -129,6 +139,8 @@ input_file: entries {
 	g_options = c;
 	g_instructions = p;
 	g_components = s;
+
+  free_ids();
 }
 ;
 
@@ -268,28 +280,24 @@ option_entry: STR  {
 ;
 
 
-instruction: DC V NUMBER NUMBER NUMBER {
+instruction: DC STR NUMBER NUMBER NUMBER {
+  // V I
 	$$ = (struct instruction_t*) calloc(1,sizeof(struct instruction_t));
 	$$->type = Dc;
-	$$->dc.sourceType = Voltage;
-	$$->dc.source = $2;
+  if ( tolower(($2)[0]) == 'v' )
+  	$$->dc.sourceType = Voltage;
+  else if ( tolower(($2)[0]) =='i' )
+    $$->dc.sourceType = Current;
+  else {
+    yyerror("DC is only for V/I");
+    return 1;
+  }
+
+	$$->dc.source = str_to_id(strdup(($2)+1));
 
 	$$->dc.begin = $3.type == Integer ? $3.integer : $3.dbl;
 	$$->dc.end   = $4.type == Integer ? $4.integer : $4.dbl;
 	$$->dc.inc   = $5.type == Integer ? $5.integer : $5.dbl;
-}
-| DC I NUMBER NUMBER NUMBER {
-	$$ = (struct instruction_t*) calloc(1,sizeof(struct instruction_t));
-	$$->type = Dc;
-	$$->dc.sourceType = Current;
-	$$->dc.source = $2;
-
-	$$->dc.begin = $3.type == Integer ? $3.integer : $3.dbl;
-	$$->dc.end   = $4.type == Integer ? $4.integer : $4.dbl;
-	$$->dc.inc   = $5.type == Integer ? $5.integer : $5.dbl;
-	
-	$$->prev = NULL;
-
 }
 | PLOT v_sources_list {
 	int i = 0;
@@ -319,13 +327,25 @@ instruction: DC V NUMBER NUMBER NUMBER {
 ;
 
 v_sources_list: v_sources_list V2 {
+  char *endptr;
+
 	$$.vals = (int*) realloc($$.vals, sizeof(int) * ($$.num+1) );
-	$$.vals[ $$.num ] = $2;
-	$$.num++;
+	$$.vals[$$.num] = strtol($2, &endptr, 10);
+
+  if ( *endptr!=0 && !isspace(*endptr) ) {
+  	$$.vals[$$.num] = str_to_id($2);
+  }
+  $$.num++;
 }
 | V2 {
+  char *endptr;
 	$$.vals = (int*) calloc(1,sizeof(int));
-	$$.vals[0] = $1;
+  
+  $$.vals[0] = strtol($1, &endptr, 10);
+
+  if ( *endptr!=0 && !isspace(*endptr) ) {
+  	$$.vals[0] = str_to_id($1);
+  }
 	$$.num = 1;
 }
 ;
@@ -333,71 +353,93 @@ v_sources_list: v_sources_list V2 {
 component: description NEW_LINE { $$ = $1; }
 ;
 
-description:V tail1 transient_spec 
+description:STR tail1 transient_spec 
 {
-	$$.type = V;
-	new_t1(&($$.t1),$1, $2.plus, $2.minus, $2.val);
-
-	if ( $2.val == 0 && $3==NULL) {
-    yyerror("Ground is at node 0");
-    return 1;
-  }
+  // V I
 	
-	$$.t1.transient = $3;
-}
-| I tail1 transient_spec {
-	$$.type = I;
-	new_t1(&($$.t1),$1, $2.plus, $2.minus, $2.val);
+  switch(tolower($1[0])) {
+    case 'v':
+      $$.type = V;
+    break;
 
+    case 'i':
+      $$.type = I;
+    break;
+
+    case 'r':
+      if ( $3 != 0 ) {
+        yyerror("R cannot have transient_spec\n");
+        return 1;
+      }
+      $$.type = R;
+    break;
+    
+    case 'l':
+      if ( $3 != 0 ) {
+        yyerror("L cannot have transient_spec\n");
+        return 1;
+      }
+      $$.type = L;
+    break;
+    case 'c':
+      if ( $3 != 0 ) {
+        yyerror("C cannot have transient_spec\n");
+        return 1;
+      }
+      $$.type = C;
+    break;
+    
+    default: {
+      char err[500];
+      sprintf(err, "Invalid component %c", (char)toupper(($1)[0]));
+      yyerror(err);
+      return 1;
+    }
+
+  }
+	new_t1(&($$.t1),str_to_id(strdup($1+1)), $2.plus, $2.minus, $2.val);
+  free($1);
 	$$.t1.transient = $3;
-// void new_t1(struct T1_t* ret, int id, int plus, int minus, double val)
 }
-| R tail1 {
-	$$.type = R;
-	new_t1(&($$.t1),$1, $2.plus, $2.minus, $2.val);
-// void new_t1(struct T1_t* ret, int id, int plus, int minus, double val)
-}
-| C tail1 {
-	$$.type = C;
-	new_t1(&($$.t1),$1, $2.plus, $2.minus, $2.val);
-// void new_t1(struct T1_t* ret, int id, int plus, int minus, double val)
-}
-| L tail1 {
-	$$.type = L;
-	new_t1(&($$.t1),$1, $2.plus, $2.minus, $2.val);
-// void new_t1(struct T1_t* ret, int id, int plus, int minus, double val)
-}
-| D tail2 {
+| STR tail2 {
+  // d
 	$$.type = D;
-	new_t2(&($$.t2), $1, $2.plus, $2.minus,  $2.model_name, 0, 0  );
-//void new_t2(struct T2_t* ret, int id, int plus, int minus, char *model_name, int area_used, double area)
+	new_t2(&($$.t2), str_to_id(strdup($1+1)), $2.plus, $2.minus,  $2.model_name, 0, 0  );
+  free($1);
 }
-| D tail2 NUMBER {
+| STR tail2 NUMBER {
+  // d
 	if ( $3.type != Double ) {
 		yyerror("Expected Double as last argument");
     return 1;
   }
 	$$.type = D;
-	new_t2(&($$.t2), $1, $2.plus, $2.minus, $2.model_name,  1, $3.dbl );
-//void new_t2(struct T2_t* ret, int id, int plus, int minus, char *model_name, int area_used, double area)
+	new_t2(&($$.t2), str_to_id(strdup($1+1)), $2.plus, $2.minus, $2.model_name,  1, $3.dbl );
+  free($1);
 }
-| M tail3 {
+| STR tail3 {
+  // M
 	$$.type = M;
-	new_t3(&($$.t3), $1, $2.d, $2.g, $2.b, $2.s, $2.l, $2.w, $2.model_name);
+	new_t3(&($$.t3), str_to_id(strdup($1+1)), $2.d, $2.g, $2.b, $2.s, $2.l, $2.w, $2.model_name);
+  free($1);
 //void new_t3(struct T3_t* ret, int id, int d, int g, int s, int b, double l, double w, char* model_name)
 }
-| Q tail4 {
+| STR tail4 {
+  // Q
 	$$.type = Q;
-	new_t4(&($$.t4), $1, $2.c, $2.b, $2.e, $2.model_name, 0, 0 );
+	new_t4(&($$.t4), str_to_id(strdup($1+1)), $2.c, $2.b, $2.e, $2.model_name, 0, 0 );
+  free($1);
 	//void new_t4(struct T4_t* ret, int id, int c, int b, int e, char *model_name, int area_used, double area)
 }
-| Q tail4 NUMBER{
+| STR tail4 NUMBER{
+  // Q
 	if ( $3.type != Double ) {
 			yyerror("Expected Double as last argument"); 
       return 1;
   }
 	$$.type = Q;
-	new_t4(&($$.t4), $1, $2.c, $2.b, $2.e, $2.model_name, 1, $3.dbl );
+	new_t4(&($$.t4), str_to_id(strdup($1+1)), $2.c, $2.b, $2.e, $2.model_name, 1, $3.dbl );
+  free($1);
 	//void new_t4(struct T4_t* ret, int id, int c, int b, int e, char *model_name, int area_used, double area)
 }
 ;
@@ -422,7 +464,7 @@ tail4: NUMBER NUMBER NUMBER STR {
 }
 ;
 
-tail3: NUMBER NUMBER NUMBER NUMBER   NUMBER NUMBER STR {
+tail3: NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER STR {
 	//INT INT INT INT DOUBLE DOUBLE STR
 
 	if ( $1.type != Integer ) {
@@ -482,24 +524,47 @@ tail2: NUMBER NUMBER STR {
 }
 ;
 
+
 tail1: NUMBER NUMBER NUMBER {
-	if ($1.type != Integer ) {
-		yyerror("PLUS should be integer");
+  if ( $1.type != Integer) {
+    yyerror("Plus should be an integer");
+    return 1;
+  }
+  if ( $2.type != Integer ) {
+    yyerror("Minus should be an integer");
+    return 1;
+  }
+  $$.plus = $1.integer;
+
+  $$.minus = $2.integer;
+  $$.val = number_to_double(&$3);
+} 
+| STR NUMBER NUMBER
+{ 
+  if ( $2.type != Integer ) {
+    yyerror("Minus should be an integer");
     return 1;
   }
 
-	if ($2.type != Integer ) {
-		yyerror("MINUS should be integer");
+  $$.plus = str_to_id($1);
+  $$.minus = $2.integer;
+  $$.val = number_to_double(&$3);
+}
+| NUMBER STR NUMBER
+{
+  if ( $1.type != Integer) {
+    yyerror("Plus should be an integer");
     return 1;
   }
-	
-	$$.plus = $1.integer;
-	$$.minus = $2.integer;
-	
-	if ( $3.type == Integer )
-		$$.val = $3.integer;
-	else
-		$$.val = $3.dbl;
+  $$.plus = $1.integer;
+  $$.minus = str_to_id($2);
+  $$.val = number_to_double(&$3);
+}
+| STR STR NUMBER
+{
+  $$.plus = str_to_id($1);
+  $$.minus = str_to_id($2);
+  $$.val = number_to_double(&$3);
 }
 ;
 
@@ -645,5 +710,45 @@ int compare_pair(const void *p1, const void *p2)
     return -1;
 
   return 0;
+}
+
+
+int str_to_id(char *str)
+{
+  int i =0;
+  int j;
+  // strip whitespace from str
+
+  for (i=0; str[i]!=0; i++ ) {
+    if ( isspace(str[i]) ) {
+      for (j=i; str[j] != 0; j++)
+        str[j] = str[j+1];
+      i--;
+    }
+  }
+
+  //printf("str: %s\n", str);
+
+  for ( i=0 ;i<num_ids; i++ )
+    if ( strcasecmp(ids[i], str) == 0 )
+      return i;
+
+  if ( num_ids == max_num_ids ) {
+    max_num_ids+= IDS_CHUNK;
+  }
+  ids = (char**) realloc(ids, sizeof(char*) * (max_num_ids));
+  ids[num_ids] = str;
+
+  return num_ids++;
+}
+
+void free_ids()
+{
+  int i;
+  for (i=0; i<num_ids; i++ )
+    free(ids[i]);
+  free(ids);
+
+  num_ids = 0;
 }
 

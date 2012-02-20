@@ -1,6 +1,10 @@
 zice: syntactic.tab.c lex.yy.c main.c solution.c csparse.c analysis.c sparse_analysis.c utility.c
 	gcc -Wall -g lex.yy.c syntactic.tab.c solution.c main.c csparse.c analysis.c sparse_analysis.c utility.c -lm  -o zice
 
+release_zice:  syntactic.tab.c lex.yy.c main.c solution.c csparse.c analysis.c sparse_analysis.c utility.c
+	gcc -Wall -O4 lex.yy.c syntactic.tab.c solution.c main.c csparse.c analysis.c sparse_analysis.c utility.c -lm  -o release_zice
+
+
 syntactic.tab.c: syntactic.y types.h
 	bison -vt --defines=syntactic.tab.h syntactic.y
 

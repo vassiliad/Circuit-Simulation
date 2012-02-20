@@ -18,6 +18,8 @@
 enum elementTypes {typeV, typeI, typeR, typeC, typeL, typeM, typeD, typeQ };
 
 
+void *z_calloc(size_t nmemb, size_t size);
+void *z_malloc(size_t size);
 
 double linear_interpolate(double x, double x0, double y0, double x1, double y1);
 double calculate_ac(const transient_spec_t *transient, double t);

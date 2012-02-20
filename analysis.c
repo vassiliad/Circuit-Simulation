@@ -27,17 +27,20 @@ void instruction_tran_tr(struct instruction_t *instr, int max_nodes, int sources
   double t;
   int i,j;
 
-  double *matrix = (double*) malloc(sizeof(double)*(max_nodes+sources)*(max_nodes+sources));
-  double *matrix2 = (double*) malloc(sizeof(double)*(max_nodes+sources)*(max_nodes+sources));
-  double *solution_0 = (double*) malloc(sizeof(double)*(max_nodes+sources));
-  double *solution_1 = (double*) malloc(sizeof(double)*(max_nodes+sources));
-  double *RHS_0 = (double*) malloc(sizeof(double)*(max_nodes+sources));
-  double *RHS_1 = (double*) malloc(sizeof(double)*(max_nodes+sources));
+  double *matrix = (double*) z_malloc(sizeof(double)*(max_nodes+sources)*(max_nodes+sources));
+  double *matrix2 = (double*) z_malloc(sizeof(double)*(max_nodes+sources)*(max_nodes+sources));
+  double *solution_0 = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
+  double *solution_1 = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
+  double *RHS_0 = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
+  double *RHS_1 = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
   double *swap;
 
-  for (i=0; i<max_nodes+sources; i++ )
-    for ( j=0; j<max_nodes+sources; j++ )
-      temp[i*(max_nodes+sources)+j] = MNA_G[ P[i]*(max_nodes+sources)+j];
+
+  
+  if ( P )
+    for (i=0; i<max_nodes+sources; i++ )
+      for ( j=0; j<max_nodes+sources; j++ )
+        temp[i*(max_nodes+sources)+j] = MNA_G[ P[i]*(max_nodes+sources)+j];
   
   swap = temp;
   temp = MNA_G;
@@ -50,11 +53,15 @@ void instruction_tran_tr(struct instruction_t *instr, int max_nodes, int sources
   matrix_add_matrix(matrix, MNA_G, MNA_C, (max_nodes+sources));
   matrix_sub_matrix(matrix2, MNA_G, MNA_C, (max_nodes+sources));
   
-
-  for( i = 0 ; i < max_nodes + sources; i++ )
-    P[i] = i;
+  
+  if ( P )
+    for( i = 0 ; i < max_nodes + sources; i++ )
+      P[i] = i;
 
   if ( iter_type == NoIter ) {
+    memset(L, 0, sizeof(double)*(max_nodes+sources));
+    memset(U, 0, sizeof(double)*(max_nodes+sources));
+
     if ( spd_flag==0) 
       LU_decomposition(matrix, L, U, P, max_nodes + sources );
     else {
@@ -63,7 +70,7 @@ void instruction_tran_tr(struct instruction_t *instr, int max_nodes, int sources
     }
   } else {
     for (i=0; i<max_nodes+sources; i++ ) 
-      m[i] = MNA_G[i*(max_nodes+sources)+i];
+      m[i] = matrix[i*(max_nodes+sources)+i];
   }
 
   for ( t=instr->tran.time_step; t<=instr->tran.time_finish; t+= instr->tran.time_step ) {
@@ -71,7 +78,8 @@ void instruction_tran_tr(struct instruction_t *instr, int max_nodes, int sources
     multiply_matrix_vector(matrix2,solution_0, temp, max_nodes+sources);
     add_vectors(RHS_0, RHS_1, RHS_0, max_nodes+sources);
     sub_vectors(RHS_0, temp, RHS_0, max_nodes+sources);
-
+    printf("---\n");
+    print_array(RHS_0, max_nodes+sources);
     if ( iter_type == NoIter ) {
       forward_substitution(L, RHS_0, temp ,P, max_nodes + sources);
       backward_substitution(U, temp, solution_1, max_nodes+sources);
@@ -83,10 +91,10 @@ void instruction_tran_tr(struct instruction_t *instr, int max_nodes, int sources
         biconjugate(matrix, solution_1, RHS_0, m, itol, max_nodes+sources);
     }
     
-    /*printf("RHS: \n");
+    printf("RHS: \n");
 
     for (i=0; i< max_nodes + sources ;i++ )	
-      printf("%7g\n", RHS_0[i]);*/
+      printf("%7g\n", RHS_1[i]);
 
     /*printf("Result:\n");
     print_array(solution_1,max_nodes+sources);*/
@@ -126,30 +134,28 @@ void instruction_tran_be(struct instruction_t *instr, int max_nodes, int sources
   double t;
   int i,j;
 
-  double *matrix = (double*) malloc(sizeof(double)*(max_nodes+sources)*(max_nodes+sources));
-  double *solution_0 = (double*) malloc(sizeof(double)*(max_nodes+sources));
-  double *solution_1 = (double*) malloc(sizeof(double)*(max_nodes+sources));
-  double *RHS_0 = (double*) malloc(sizeof(double)*(max_nodes+sources));
-  double *RHS_1 = (double*) malloc(sizeof(double)*(max_nodes+sources));
+  double *matrix = (double*) z_malloc(sizeof(double)*(max_nodes+sources)*(max_nodes+sources));
+  double *solution_0 = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
+  double *solution_1 = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
   double *swap;
-
-  for (i=0; i<max_nodes+sources; i++ )
-    for ( j=0; j<max_nodes+sources; j++ )
-      temp[i*(max_nodes+sources)+j] = MNA_G[ P[i]*(max_nodes+sources)+j];
+  
+  if ( P )
+    for (i=0; i<max_nodes+sources; i++ )
+      for ( j=0; j<max_nodes+sources; j++ )
+        temp[i*(max_nodes+sources)+j] = MNA_G[ P[i]*(max_nodes+sources)+j];
   
   swap = temp;
   temp = MNA_G;
   MNA_G = swap;
 
-  memcpy(RHS_0, RHS, sizeof(double)*(max_nodes+sources));
   memcpy(solution_0, dc_point, sizeof(double)*(max_nodes+sources));
 
   matrix_multiply_scalar(MNA_C, MNA_C, 1/instr->tran.time_step, max_nodes+sources);
   matrix_add_matrix(matrix, MNA_G, MNA_C, (max_nodes+sources));
-  
-
-  for( i = 0 ; i < max_nodes + sources; i++ )
-    P[i] = i;
+    
+  if ( P )
+    for( i = 0 ; i < max_nodes + sources; i++ )
+      P[i] = i;
 
   if ( iter_type == NoIter ) {
     if ( spd_flag==0) 
@@ -160,23 +166,23 @@ void instruction_tran_be(struct instruction_t *instr, int max_nodes, int sources
     }
   } else {
     for (i=0; i<max_nodes+sources; i++ ) 
-      m[i] = MNA_G[i*(max_nodes+sources)+i];
+      m[i] = matrix[i*(max_nodes+sources)+i];
   }
 
   for ( t=instr->tran.time_step; t<=instr->tran.time_finish; t+= instr->tran.time_step ) {
-    calculate_RHS(g_components, max_nodes, sources, RHS_1, t, 0);
+    calculate_RHS(g_components, max_nodes, sources, RHS, t, 0);
     multiply_matrix_vector(MNA_C,solution_0, temp, max_nodes+sources);
-    add_vectors(RHS_0, RHS_1, temp, max_nodes+sources);
+    add_vectors(RHS, temp, RHS, max_nodes+sources);
 
     if ( iter_type == NoIter ) {
-      forward_substitution(L, RHS_0, temp ,P, max_nodes + sources);
+      forward_substitution(L, RHS, temp ,P, max_nodes + sources);
       backward_substitution(U, temp, solution_1, max_nodes+sources);
     } else {
       memset(solution_1, 0, sizeof(double)*(max_nodes+sources));
       if ( iter_type==CG)
-        conjugate(matrix, solution_1, RHS_0, m, itol, max_nodes+sources);
+        conjugate(matrix, solution_1, RHS, m, itol, max_nodes+sources);
       else
-        biconjugate(matrix, solution_1, RHS_0, m, itol, max_nodes+sources);
+        biconjugate(matrix, solution_1, RHS, m, itol, max_nodes+sources);
     }
 
     /*printf("RHS: \n");
@@ -197,10 +203,6 @@ void instruction_tran_be(struct instruction_t *instr, int max_nodes, int sources
       }
     }
 
-    swap = RHS_0;
-    RHS_0 = RHS_1;
-    RHS_1 = swap;
-
     swap = solution_0;
     solution_0 = solution_1;
     solution_1 = swap;
@@ -209,8 +211,6 @@ void instruction_tran_be(struct instruction_t *instr, int max_nodes, int sources
   free(matrix);
   free(solution_0);
   free(solution_1);
-  free(RHS_0);
-  free(RHS_1);
 
 }
 
@@ -281,11 +281,11 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
   }
 
 
-  *MNA_G= (double*) calloc((*max_nodes+*sources)*(*max_nodes+*sources), sizeof(double));
+  *MNA_G= (double*) z_calloc((*max_nodes+*sources)*(*max_nodes+*sources), sizeof(double));
 
 
   if ( transient_analysis )
-    *MNA_C= (double*) calloc((*max_nodes+*sources)*(*max_nodes+*sources), sizeof(double));
+    *MNA_C= (double*) z_calloc((*max_nodes+*sources)*(*max_nodes+*sources), sizeof(double));
 
   matrix  = *MNA_G;
   matrix2 = *MNA_C;
@@ -327,10 +327,6 @@ void circuit_mna(struct components_t *circuit, double **MNA_G, double **MNA_C, i
     }
   }
   
-
-  print_matrix(matrix, *max_nodes+*sources);
-  printf("asd;askjdklasjdhaksljh\n");
-
   FILE* mna = fopen("mna_analysis", "w");
 
   printf("MNA matrix: see file \"mna_analysis\"\n" );
@@ -487,20 +483,21 @@ int execute_instructions(double *MNA_G, double *MNA_C,  int max_nodes, int sourc
   int *P=NULL;
   int i;
   struct instruction_t *instr;
+  double *test = (double*) calloc(max_nodes+sources,sizeof(double));
 
   // Gia tous sparse pinakes
 
   instr = g_instructions;
 
-  RHS = (double*) calloc(max_nodes+sources, sizeof(double));
-  result = (double*) calloc((max_nodes+sources), sizeof(double));
-  dc_point = (double*) calloc((max_nodes+sources), sizeof(double));
+  RHS = (double*) z_calloc(max_nodes+sources, sizeof(double));
+  result = (double*) z_calloc((max_nodes+sources), sizeof(double));
+  dc_point = (double*) z_calloc((max_nodes+sources), sizeof(double));
+  temp = (double* ) z_calloc( (max_nodes+sources) * (max_nodes+sources), sizeof(double));
 
   if ( iter_type == NoIter ) {
-    L = (double*) calloc((max_nodes+sources)*(max_nodes+sources), sizeof(double));
-    U = (double*) calloc((max_nodes+sources)*(max_nodes+sources), sizeof(double));
-    P = (int*) calloc((max_nodes+sources), sizeof(int));
-    temp = (double* ) calloc( (max_nodes+sources) * (max_nodes+sources), sizeof(double));
+    L = (double*) z_calloc((max_nodes+sources)*(max_nodes+sources), sizeof(double));
+    U = (double*) z_calloc((max_nodes+sources)*(max_nodes+sources), sizeof(double));
+    P = (int*) z_calloc((max_nodes+sources), sizeof(int));
     for( i = 0 ; i < max_nodes + sources; i++ )
       P[i] = i;
     if ( spd_flag==0) {
@@ -545,7 +542,7 @@ int execute_instructions(double *MNA_G, double *MNA_C,  int max_nodes, int sourc
     print_array(dc_point, max_nodes+sources);
 
   } else {
-    m = (double*) malloc(sizeof(double) * (max_nodes+sources));
+    m = (double*) z_malloc(sizeof(double) * (max_nodes+sources));
 
     for (i=0; i<max_nodes+sources; i++ ) 
       m[i] = MNA_G[i*(max_nodes+sources)+i];
@@ -555,7 +552,33 @@ int execute_instructions(double *MNA_G, double *MNA_C,  int max_nodes, int sourc
     printf("Circuit Solution\n");
     print_array(dc_point, max_nodes+sources);
   }
+calculate_RHS(g_components,max_nodes,sources,RHS, -1, 1);
 
+  FILE *dc = fopen("dc_point", "w");
+  if ( P ) {
+    for (i=0; i<max_nodes+sources; i++)
+      fprintf(dc,"%10g\n", dc_point[P[i]]);
+    fprintf(dc,"...........RHS...\n");
+    for (i=0; i<max_nodes+sources; i++)
+      fprintf(dc,"%10g\n", RHS[P[i]]);
+  } else {
+    for (i=0; i<max_nodes+sources; i++)
+      fprintf(dc,"%10g\n", dc_point[i]);
+    fprintf(dc,"...........RHS...\n");
+    for (i=0; i<max_nodes+sources; i++)
+      fprintf(dc,"%10g\n", RHS[i]);
+  }
+    
+
+  multiply_matrix_vector(MNA_G,dc_point,test,max_nodes+sources);
+
+  fprintf(dc,"...........\n");
+
+  for(i = 0 ; i < max_nodes+sources ; i++)
+    fprintf(dc,"%10g\n",test[i]);
+
+  fclose(dc);
+  free(test);
 
 
   while ( instr ) {

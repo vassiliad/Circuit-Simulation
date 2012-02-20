@@ -8,6 +8,27 @@ extern struct components_t *g_components;
 extern struct instruction_t *g_instructions;
 extern struct option_t *g_options;
 
+void *z_calloc(size_t nmemb, size_t size)
+{
+  void *ret = calloc(nmemb, size);
+  if ( ret == NULL ) {
+    printf("[-] Ran out of memory ( requested %llu bytes )\n", (long long unsigned int)(size)*nmemb);
+    exit(0);
+  }
+  
+  return ret;
+}
+
+void *z_malloc(size_t size)
+{
+  void *ret = malloc(size);
+  if ( ret == NULL ) {
+    printf("[-] Ran out of memory ( requested %u bytes )\n", size);
+    exit(0);
+  }
+  
+  return ret;
+}
 
 
 
@@ -19,9 +40,10 @@ double linear_interpolate(double x, double x0, double y0, double x1, double y1)
 double calculate_ac(const transient_spec_t *transient, double t)
 {
   int i;
+
   if ( transient == NULL ) 
     return 0;
-
+  
   switch ( transient->type ) {
     case Exp:
       if ( t < transient->exp.td1 ) {
@@ -97,7 +119,7 @@ double calculate_ac(const transient_spec_t *transient, double t)
       printf("Invalid calculate_ac type\n");
       exit(0);
   }
-  
+
 }
 
 
@@ -143,7 +165,7 @@ void circuit_print(struct components_t *circuit)
       case V:
         printf("V"); 
         printf("%d +:%d -:%d v:%lf\tis ground:%s\n", s->data.t1.id, s->data.t1.plus, s->data.t1.minus, s->data.t1.val,
-            (s->data.t1.val==0 ? "yes" : "no"));
+            (s->data.t1.is_ground==1 ? "yes" : "no"));
         break;
       case I:
         printf("I");
@@ -194,19 +216,16 @@ int calculate_RHS(struct components_t *circuit,int max_nodes,int sources, double
     RHS[y] = 0;
 
   for (s=circuit; s!=NULL; s=s->next) {
+    temp = 0;
     if ( s->data.type == I ) {
       if ( !dc_only ) 
         temp = calculate_ac(s->data.t1.transient, t);
 
       if ( s->data.t1.plus != max_nodes )
         RHS[ s->data.t1.plus ] += s->data.t1.val + temp;
-      else if ( s->data.t1.minus != max_nodes )
-        RHS[ s->data.t1.minus] -= s->data.t1.val - temp;
-      else {
-        printf("Vraxukuklwma sthn phgh reumatos panw sth geiwsh\n");
-        exit(0);
-      }
-      
+      if ( s->data.t1.minus != max_nodes )
+        RHS[ s->data.t1.minus] -= s->data.t1.val + temp;
+            
 
     }
     else if ( s->data.type == V && s->data.t1.is_ground == 0 ) {

@@ -6,6 +6,8 @@
 #include "types.h"
 #include "syntactic.tab.h"
 
+#define zprint(...)
+
 %}
 
 %option nounput
@@ -37,107 +39,55 @@
 	return DC;
 }
 
+".op" {
+}
+
+".end" {
+}
+
 "PWL" return PWL;
 "SIN" return SIN;
 "PULSE" return PULSE;
 "EXP" return EXP;
 
-[[:digit:]]+ {
+[-+]?[[:digit:]]+ {
 	yylval.number.type = Integer;
 	yylval.number.integer = strtoul(yytext, 0, 10);
+  zprint("Number_i: %d\n", yylval.number.integer);
 	return NUMBER;
 }
 
-[[:digit:]]+(\.[[:digit:]]+(e[-+]?[[:digit:]]+)?|(\.[[:digit:]]+)?(e[-+]?[[:digit:]]+)) {
+[-+]?[[:digit:]]+(\.[[:digit:]]+(e[-+]?[[:digit:]]+)?|(\.[[:digit:]]+)?(e[-+]?[[:digit:]]+)) {
 	yylval.number.type = Double;
 	yylval.number.dbl = strtod(yytext,NULL);
+  zprint("Number_d: %g\n", yylval.number.dbl);
 	return NUMBER;
 }
 
 
 
-V[ \t]*[[:digit:]]+ {
-	char *s = yytext;
-	while ( isdigit(*s) == 0 )
-		s++;
-	yylval.id = strtoul(s,0,10);
-	return V;
-}
-
-I[ \t]*[[:digit:]]+  {
-	char *s = yytext;
-	while ( isdigit(*s) == 0 )
-		s++;
-	yylval.id = strtoul(s,0,10);
-	return I;
-}
-
 V[ \t]*\([ \t]*[[:digit:]]+[ \t]*\) {
-	char *s = yytext;
-	while ( isdigit(*s) == 0 )
-		s++;
-	yylval.id = strtoul(s,0,10);
+  char * str;
+  char *ptr;
+
+  str = strchr(yytext, '(')+1;
+  ptr = strchr(yytext, ')');
+  str = strndup(str, ptr-str);
+  
+  zprint("V2 %s (%s)\n", yytext, str);
+  yylval.str = str;
 	return V2;
 }
-
-R[ \t]*[[:digit:]]+  {
-	char *s = yytext;
-	while ( isdigit(*s) == 0 )
-		s++;
-	yylval.id = strtoul(s,0,10);
-	return R;
-}
-
-C[ \t]*[[:digit:]]+  {
-	char *s = yytext;
-	while ( isdigit(*s) == 0 )
-		s++;
-	yylval.id = strtoul(s,0,10);
-	return C;
-}
-
-L[ \t]*[[:digit:]]+  {
-	char *s = yytext;
-	while ( isdigit(*s) == 0 )
-		s++;
-	yylval.id = strtoul(s,0,10);
-	return L;
-}
-
-D[ \t]*[[:digit:]]+  {
-	char *s = yytext;
-	while ( isdigit(*s) == 0 )
-		s++;
-	yylval.id = strtoul(s,0,10);
-	return D;
-}
-
-Q[ \t]*[[:digit:]]+  {
-	char *s = yytext;
-	while ( isdigit(*s) == 0 )
-		s++;
-	yylval.id = strtoul(s,0,10);
-	return Q;
-}
-
-M[ \t]*[[:digit:]]+  {
-	char *s = yytext;
-	while ( isdigit(*s) == 0 )
-		s++;
-	yylval.id = strtoul(s,0,10);
-	return M;
-}
-
 
 \n+ {
 	return NEW_LINE;
 }
 
-" " { }
 [\ \r\t]+ { }
 
 [_]?[[:alpha:]]+([[:alnum:]]?[_]?)+ {
 	yylval.str = strdup(yytext);
+  zprint("str: %s\n", yytext);
 	return STR;
 }
 

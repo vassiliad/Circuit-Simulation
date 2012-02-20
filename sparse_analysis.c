@@ -24,14 +24,14 @@ void instruction_sparse_tran_tr(struct instruction_t *instr, int max_nodes, int 
   struct instruction_t *ptr;
   double t;
   int i,j;
-  double *solution_0 = (double*) malloc(sizeof(double)*(max_nodes+sources));
-  double *solution_1 = (double*) calloc((max_nodes+sources), sizeof(double));
-  double *RHS_0 = (double*) malloc(sizeof(double)*(max_nodes+sources));
-  double *RHS_1 = (double*) malloc(sizeof(double)*(max_nodes+sources));
-  double *temp = (double*) malloc(sizeof(double)*(max_nodes+sources));
+  double *solution_0 = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
+  double *solution_1 = (double*) z_calloc((max_nodes+sources), sizeof(double));
+  double *RHS_0 = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
+  double *RHS_1 = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
+  double *temp = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
   cs *matrix, *matrix2;
-  csn *N;
-  css *S;
+  csn *N=NULL;
+  css *S=NULL;
   double *swap;
 
   memcpy(RHS_0, RHS, sizeof(double)*(max_nodes+sources));
@@ -55,6 +55,7 @@ void instruction_sparse_tran_tr(struct instruction_t *instr, int max_nodes, int 
     for (i=0; i<max_nodes+sources; i++ ) 
       m[i] = cs_atxy(matrix, i, i );
   }
+
   
   for ( t=instr->tran.time_step; t<=instr->tran.time_finish; t+= instr->tran.time_step ) {
     calculate_RHS(g_components, max_nodes, sources, RHS_1, t, 0);
@@ -63,6 +64,9 @@ void instruction_sparse_tran_tr(struct instruction_t *instr, int max_nodes, int 
     cs_gaxpy(matrix2, solution_0, temp);
     add_vectors(RHS_0, RHS_1, RHS_0, max_nodes+sources);
     sub_vectors(RHS_0, temp, RHS_0, max_nodes+sources);
+
+    printf("---\n");
+    print_array(RHS_0, max_nodes+sources);
 
     if ( iter_type == NoIter ) {
       if ( spd_flag == 0 ) 
@@ -78,10 +82,10 @@ void instruction_sparse_tran_tr(struct instruction_t *instr, int max_nodes, int 
       }
     }
     
-    /*printf("RHS: \n");
+    printf("RHS: \n");
 
     for (i=0; i< max_nodes + sources ;i++ )	
-      printf("%7g\n", RHS_0[i]);*/
+      printf("%7g\n", RHS_1[i]);
 
     /*printf("Result:\n");
     print_array(solution_1,max_nodes+sources);*/
@@ -120,15 +124,15 @@ void instruction_sparse_tran_be(struct instruction_t *instr, int max_nodes, int 
  struct instruction_t *ptr;
   double t;
   int i,j;
-  double *solution_0 = (double*) malloc(sizeof(double)*(max_nodes+sources));
-  double *solution_1 = (double*) calloc(max_nodes+sources,sizeof(double));
+  double *solution_0 = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
+  double *solution_1 = (double*) z_calloc(max_nodes+sources,sizeof(double));
  
-  double *RHS_0 = (double*) malloc(sizeof(double)*(max_nodes+sources));
-  double *RHS_1 = (double*) malloc(sizeof(double)*(max_nodes+sources));
-  double *temp = (double*) malloc(sizeof(double)*(max_nodes+sources));
+  double *RHS_0 = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
+  double *RHS_1 = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
+  double *temp = (double*) z_malloc(sizeof(double)*(max_nodes+sources));
   cs *matrix ;
-  csn *N;
-  css *S;
+  csn *N=NULL;
+  css *S=NULL;
   double *swap;
 
 
@@ -160,6 +164,7 @@ void instruction_sparse_tran_be(struct instruction_t *instr, int max_nodes, int 
     for (i=0; i<max_nodes+sources; i++ ) 
       m[i] = cs_atxy(matrix, i, i );
   }
+
   
   for ( t=instr->tran.time_step; t<=instr->tran.time_finish; t+= instr->tran.time_step ) {
     calculate_RHS(g_components, max_nodes, sources, RHS_1, t,0);
@@ -276,6 +281,7 @@ void circuit_mna_sparse(struct components_t *circuit, cs** MNA_G, cs** MNA_C, in
   printf("sources           : %d\n"
       "nodes             : %d\n", *sources-inductors, *max_nodes);
   printf("artificial sources: %d\n", *sources);
+  printf("non zero elementrs: %d\n", non_zero);
 
   for ( w = g_instructions; w; w=w->next ){
     if ( w->type == Tran ) {
@@ -451,7 +457,7 @@ int execute_instructions_sparse(cs *MNA_sparse_G, cs *MNA_sparse_C, int max_node
   int i;
   double *result =NULL;
   struct instruction_t *instr;
-
+  double *test = (double*) calloc(max_nodes+sources,sizeof(double));
   // Gia tous sparse pinakes
   cs *MNA_compressed_G = NULL, *MNA_compressed_C = NULL;
   css *S =  NULL;
@@ -459,9 +465,9 @@ int execute_instructions_sparse(cs *MNA_sparse_G, cs *MNA_sparse_C, int max_node
 
   instr = g_instructions;
 
-  RHS = (double*) calloc(max_nodes+sources, sizeof(double));
-  result = (double*) calloc((max_nodes+sources), sizeof(double));
-  dc_point = (double*) calloc((max_nodes+sources), sizeof(double));
+  RHS = (double*) z_calloc(max_nodes+sources, sizeof(double));
+  result = (double*) z_calloc((max_nodes+sources), sizeof(double));
+  dc_point = (double*) z_calloc((max_nodes+sources), sizeof(double));
 
   MNA_compressed_G = cs_compress(MNA_sparse_G);
 
@@ -493,7 +499,7 @@ int execute_instructions_sparse(cs *MNA_sparse_G, cs *MNA_sparse_C, int max_node
       print_array(dc_point, max_nodes+sources);
     }
   } else {
-    m = (double*) malloc(sizeof(double) * (max_nodes+sources));
+    m = (double*) z_malloc(sizeof(double) * (max_nodes+sources));
 
     for (i=0; i<max_nodes+sources; i++ ) 
       m[i] = cs_atxy(MNA_compressed_G, i, i );
@@ -502,6 +508,23 @@ int execute_instructions_sparse(cs *MNA_sparse_G, cs *MNA_sparse_C, int max_node
     printf("Circuit Solution\n");
     print_array(dc_point, max_nodes+sources);
   }
+calculate_RHS(g_components,max_nodes,sources,RHS,-1, 1);
+
+  FILE *dc = fopen("dc_point", "w");
+  for (i=0; i<max_nodes+sources; i++)
+    fprintf(dc,"%10g\n", dc_point[i]);
+  fprintf(dc,"...........RHS...\n");
+  for (i=0; i<max_nodes+sources; i++)
+    fprintf(dc,"%10g\n", RHS[i]);
+
+  fprintf(dc,"...........dcpoint\n");
+  cs_gaxpy(MNA_compressed_G, dc_point, test);
+
+  for(i = 0 ; i < max_nodes+sources ; i++)
+    fprintf(dc,"%10g\n",test[i]);
+
+  fclose(dc);
+  free(test);
 
 
   while ( instr ) {
