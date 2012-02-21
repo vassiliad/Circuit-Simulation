@@ -144,14 +144,14 @@ input_file: entries {
 }
 ;
 
-entries: entries option {
+entries: entries option NEW_LINE {
 	$2->prev = g_options;
 	if ( g_options )
 		g_options -> next = $2;
 	g_options = $2;
 	$$ = $1;
 }
-| entries instruction {
+| entries instruction NEW_LINE {
 	$2->prev = g_instructions;
 	if ( g_instructions )
 		g_instructions->next = $2;
@@ -174,7 +174,7 @@ entries: entries option {
 	$$ = $1;
 	$$.components = g_components;
 }
-| instruction {
+| instruction  NEW_LINE{
 	$$.instructions = $1;
 	g_instructions = $1;
 }
@@ -185,7 +185,7 @@ entries: entries option {
 
 	$$.components = g_components;
 }
-| option {
+| option NEW_LINE{
 	g_options = $1;
 }
 
