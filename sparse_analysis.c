@@ -65,8 +65,6 @@ void instruction_sparse_tran_tr(struct instruction_t *instr, int max_nodes, int 
     add_vectors(RHS_0, RHS_1, RHS_0, max_nodes+sources);
     sub_vectors(RHS_0, temp, RHS_0, max_nodes+sources);
 
-    printf("---\n");
-    print_array(RHS_0, max_nodes+sources);
 
     if ( iter_type == NoIter ) {
       if ( spd_flag == 0 ) 
@@ -82,10 +80,10 @@ void instruction_sparse_tran_tr(struct instruction_t *instr, int max_nodes, int 
       }
     }
     
-    printf("RHS: \n");
+    /*printf("RHS: \n");
 
     for (i=0; i< max_nodes + sources ;i++ )	
-      printf("%7g\n", RHS_1[i]);
+      printf("%7g\n", RHS_1[i]);*/
 
     /*printf("Result:\n");
     print_array(solution_1,max_nodes+sources);*/
@@ -279,7 +277,7 @@ void circuit_mna_sparse(struct components_t *circuit, cs** MNA_G, cs** MNA_C, in
   circuit_print(g_components);
   printf("inductors         : %d\n", inductors);
   printf("sources           : %d\n"
-      "nodes             : %d\n", *sources-inductors, *max_nodes);
+         "nodes             : %d\n", *sources-inductors, *max_nodes);
   printf("artificial sources: %d\n", *sources);
   printf("non zero elementrs: %d\n", non_zero);
 
@@ -366,7 +364,7 @@ int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int source
         for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
 
           s->data.t1.val = dummy;
-          printf("Solving for Voltage Source value %g\n",dummy);
+          //printf("Solving for Voltage Source value %g\n",dummy);
           calculate_RHS(g_components,max_nodes,sources,RHS, -1, 1);
           if ( iter_type == NoIter ) {
             if ( spd_flag == 0 ) 
@@ -407,7 +405,7 @@ int instruction_dc_sparse(struct instruction_t *instr, int max_nodes, int source
         for(dummy = begin ; dummy <= end ;i++, dummy = dummy+step){
 
           s->data.t1.val = dummy;
-          printf("Solve for Current Source value %g\n",dummy);
+          //printf("Solve for Current Source value %g\n",dummy);
 
           calculate_RHS(g_components,max_nodes,sources,RHS, -1, 1);
           if ( iter_type == NoIter ) {
@@ -457,7 +455,6 @@ int execute_instructions_sparse(cs *MNA_sparse_G, cs *MNA_sparse_C, int max_node
   int i;
   double *result =NULL;
   struct instruction_t *instr;
-  double *test = (double*) calloc(max_nodes+sources,sizeof(double));
   // Gia tous sparse pinakes
   cs *MNA_compressed_G = NULL, *MNA_compressed_C = NULL;
   css *S =  NULL;
@@ -487,16 +484,12 @@ int execute_instructions_sparse(cs *MNA_sparse_G, cs *MNA_sparse_C, int max_node
       S = cs_sqr (2, MNA_compressed_G, 0) ;              /* ordering and symbolic analysis */
       N = cs_lu (MNA_compressed_G, S, 1) ;                 /* numeric LU factorization */
       cs_lusol(S, N, RHS, dc_point, (max_nodes+sources));
-      printf("Circuit Solution\n");
-      print_array(dc_point, max_nodes+sources);
-
+      
     } else {
       // edw exw cholesky
       S = cs_schol(1,MNA_compressed_G);
       N = cs_chol(MNA_compressed_G,S);
       cs_cholsol(S, N, RHS, dc_point, (max_nodes+sources));
-      printf("Circuit Solution\n");
-      print_array(dc_point, max_nodes+sources);
     }
   } else {
     m = (double*) z_malloc(sizeof(double) * (max_nodes+sources));
@@ -504,27 +497,21 @@ int execute_instructions_sparse(cs *MNA_sparse_G, cs *MNA_sparse_C, int max_node
     for (i=0; i<max_nodes+sources; i++ ) 
       m[i] = cs_atxy(MNA_compressed_G, i, i );
 
-    biconjugate_sparse(MNA_compressed_G, dc_point, RHS, m, itol, max_nodes+sources);
-    printf("Circuit Solution\n");
-    print_array(dc_point, max_nodes+sources);
+    if ( biconjugate_sparse(MNA_compressed_G, dc_point, RHS, m, itol, max_nodes+sources) == -1 ) {
+      printf("[-] Biconjugate Failed to solve the DC_point\n");
+      exit(0);
+    }
   }
-calculate_RHS(g_components,max_nodes,sources,RHS,-1, 1);
+
+  printf("Circuit Solution\n");
+  print_array(dc_point, max_nodes+sources);
+
+  calculate_RHS(g_components,max_nodes,sources,RHS,-1, 1);
 
   FILE *dc = fopen("dc_point", "w");
   for (i=0; i<max_nodes+sources; i++)
     fprintf(dc,"%10g\n", dc_point[i]);
-  fprintf(dc,"...........RHS...\n");
-  for (i=0; i<max_nodes+sources; i++)
-    fprintf(dc,"%10g\n", RHS[i]);
-
-  fprintf(dc,"...........dcpoint\n");
-  cs_gaxpy(MNA_compressed_G, dc_point, test);
-
-  for(i = 0 ; i < max_nodes+sources ; i++)
-    fprintf(dc,"%10g\n",test[i]);
-
   fclose(dc);
-  free(test);
 
 
   while ( instr ) {

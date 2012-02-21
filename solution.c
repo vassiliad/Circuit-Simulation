@@ -116,7 +116,7 @@ void multiply_vector_scalar(double *vec, double scalar, double* output, int size
 }
 
 
-void biconjugate_sparse(cs *A, double *x, double *b, double *m, double itol, int size){
+int biconjugate_sparse(cs *A, double *x, double *b, double *m, double itol, int size){
   double *r = (double*) calloc(size, sizeof(double));
   double *rtilde = (double*) calloc(size, sizeof(double));
   double *p = (double*) calloc(size, sizeof(double));
@@ -155,7 +155,7 @@ void biconjugate_sparse(cs *A, double *x, double *b, double *m, double itol, int
     rsnew = dot_vectors(z,rtilde,size);
     if(!rsnew){
       printf("biconjugate FAILS \n");
-      return;
+      return -1;
     }
     if(i == 0 ){
       memcpy(p, z, size*sizeof(double));
@@ -205,12 +205,13 @@ void biconjugate_sparse(cs *A, double *x, double *b, double *m, double itol, int
   free(Aptilde);
   free(z);
   free(ztilde);
-  
+
+  return 0;
 }
 
 
 
-void biconjugate(double *A, double *x, double *b, double *m, double itol, int size){
+int biconjugate(double *A, double *x, double *b, double *m, double itol, int size){
   double *r = (double*) calloc(size, sizeof(double));
   double *p = (double*) calloc(size, sizeof(double));
   double *temp = (double*) calloc(size, sizeof(double));
@@ -233,7 +234,7 @@ void biconjugate(double *A, double *x, double *b, double *m, double itol, int si
     rsnew = dot_vectors(z,r,size);
     if(!rsnew){
       printf("biconjugate FAILS \n");
-      return;
+      return -1;
     }
     if(i == 0 ){
       memcpy(p, z, size*sizeof(double));
@@ -264,6 +265,7 @@ void biconjugate(double *A, double *x, double *b, double *m, double itol, int si
   free(Ap);
   free(z);
   
+  return 0;
 }
 
 
