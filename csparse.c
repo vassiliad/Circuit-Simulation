@@ -1,6 +1,7 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
+#include <assert.h>
 #include "csparse.h"
 
 
@@ -1251,15 +1252,25 @@ double cs_atxy(cs *A, int x, int y)
   csi *Ap, *Ai ;
   double *Ax ;
 
-  if (!CS_CSC (A)) exit(0) ;       /* check inputs */
-  Ap = A->p ; Ai = A->i ; Ax = A->x ;
-  
-  for ( i=Ap[y]; i < Ap[y+1] ; i++ ) {
-    if ( Ai[i] == x )
-      return Ax[i];
-  }
+  if (CS_CSC (A)) {
+		Ap = A->p ; Ai = A->i ; Ax = A->x ;
+		
+		for ( i=Ap[y]; i < Ap[y+1] ; i++ ) {
+			if ( Ai[i] == x )
+				return Ax[i];
+		}
 
-  return 0;
+		return 0;
+	} else if ( CS_TRIPLET(A) ) {
+
+		for ( i = 0 ; i < A->nz; i++ ) 
+			if ( A->i[i] == y && A->p[i] == x ) {
+					return A->x[i];
+			}
+	 
+		return	0;
+	} else
+		assert(0);
 }
 
 int cs_add_to_entry(cs *T, int i, int j, double x)
@@ -1281,9 +1292,8 @@ int cs_add_to_entry(cs *T, int i, int j, double x)
   return cs_entry(T, i,j, x);
 }
 
-int cs_print_formated(const cs *T, char file[], int size)
+void cs_get_diag(const cs *T,  double *m, int size)
 {
-  FILE *f = fopen(file, "w");
 
   int i,j,c;
 
@@ -1294,15 +1304,42 @@ int cs_print_formated(const cs *T, char file[], int size)
           break;
         }
 
+			if ( i == j ) {
+	      if ( c != T->nz ) {
+  	    	m[i] = T->x[c];
+					if (fabs(m[i])<0.0001)
+						m[i] = T->x[c];
+    	  } else {
+					m[i] = 1;
+      	}
+			}
+    }
+  }
+}
+
+int cs_print_formated(const cs *T, FILE* f, int size)
+{
+
+  int i,j,c;
+	
+	if (!CS_TRIPLET(T) )
+		assert(0);
+
+  for (i=0; i < size; i++ ) {
+    for ( j=0; j < size; j++ ) {
+      for ( c = 0 ; c < T->nz; c++ ) 
+        if ( T->i[c] == i && T->p[c] == j ) {
+          break;
+        }
+
       if ( c != T->nz ) {
-        fprintf(f, "%10g", T->x[c]);
+        fprintf(f, "%10g\t", T->x[c]);
       } else {
-        fprintf(f,"         0");
+        fprintf(f,"         0\t");
       }
     }
     fprintf(f,"\n");
   }
-	fclose(f);
   return 1;
 }
 
@@ -1332,7 +1369,7 @@ cs *cs_load(char *matrixFilename) {
 	if (matrixFilePtr == NULL) {
 
 		fprintf(stderr, "Could not open output file %s for writing\n", matrixFilename);
-		exit(EXIT_FAILURE);
+		assert(EXIT_FAILURE);
 	}
 
 	T = cs_spalloc(0, 0, 1, 1, 1); /* allocate result */
@@ -1353,7 +1390,7 @@ int cs_print(const cs *A, const char *outputFilename, int brief) {
 	if (outputFilePtr == NULL) {
 
 		fprintf(stderr, "Could not open output file %s for writing\n", outputFilename);
-		exit(EXIT_FAILURE);
+		assert(EXIT_FAILURE);
 	}
 
 	if (!A) {
@@ -1725,7 +1762,7 @@ csi cs_gaxpy_transpose (const cs *A, const double *x, double *y)
 {
     csi p, j, n, *Ap, *Ai ;
     double *Ax ;
-    if (!CS_CSC (A) || !x || !y) exit(0) ;       /* check inputs */
+    if (!CS_CSC (A) || !x || !y) assert(0) ;       /* check inputs */
     n = A->n ; Ap = A->p ; Ai = A->i ; Ax = A->x ;
     for (j = 0 ; j < n ; j++)
     {
@@ -1741,7 +1778,9 @@ csi cs_gaxpy (const cs *A, const double *x, double *y)
 {
     csi p, j, n, *Ap, *Ai ;
     double *Ax ;
-    if (!CS_CSC (A) || !x || !y) exit(0) ;       /* check inputs */
+    if (!CS_CSC (A) || !x || !y) {
+			 assert(0) ;       /* check inputs */
+		}
     n = A->n ; Ap = A->p ; Ai = A->i ; Ax = A->x ;
     for (j = 0 ; j < n ; j++)
     {

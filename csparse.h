@@ -489,7 +489,7 @@ int cs_reltol(cs *A, double tol);
  */
 int cs_print(const cs *A, const char *outputFilename, int brief);
 
-int cs_print_formated(const cs *A, char file[], int size);
+int cs_print_formated(const cs *A, FILE* f,  int size);
 int cs_entry(cs *T, int i, int j, double x);
 int cs_add_to_entry(cs *T, int i, int j, double x);
 csn *cs_lu (const cs *A, const css *S, double tol);
@@ -509,6 +509,7 @@ csi cs_cholsol (css *s, csn *N , double *b, double *x, int n);
 
 csi cs_gaxpy (const cs *A, const double *x, double *y);
 csi cs_gaxpy_transpose (const cs *A, const double *x, double *y);
-double cs_atxy(cs *T, int i, int j);
+double cs_atxy(cs *T, int x, int y);
+void cs_get_diag(const cs *T,  double *m, int size);
 
 

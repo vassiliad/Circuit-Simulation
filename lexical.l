@@ -3,10 +3,11 @@
 %{
 #include <stdio.h>
 #include <ctype.h>
-#include "types.h"
-#include "syntactic.tab.h"
+#include "components.h"
+#include "parser.h"
 
-#define zprint(...)
+#define zprint(...) 
+#define mprint printf
 
 %}
 
@@ -25,9 +26,8 @@
   return ASSIGN;
 }
 
-".OPTION" {
-	return OPTION;
-}
+".OPTIONS" return OPTIONS;
+".OPTION"  return OPTIONS;
 
 ".TRAN" return TRAN;
 
@@ -51,32 +51,37 @@
 "EXP" return EXP;
 
 [-+]?[[:digit:]]+ {
-	yylval.number.type = Integer;
-	yylval.number.integer = strtoul(yytext, 0, 10);
-  zprint("Number_i: %d\n", yylval.number.integer);
-	return NUMBER;
+	yylval.integer = strtoul(yytext, 0, 10);
+  zprint("Number_i: %d\n", yylval.integer);
+	return INTEGER;
 }
 
 [-+]?[[:digit:]]+(\.[[:digit:]]+(e[-+]?[[:digit:]]+)?|(\.[[:digit:]]+)?(e[-+]?[[:digit:]]+)) {
-	yylval.number.type = Double;
-	yylval.number.dbl = strtod(yytext,NULL);
-  zprint("Number_d: %g\n", yylval.number.dbl);
-	return NUMBER;
+	yylval.dbl = strtod(yytext,NULL);
+  zprint("Number_d: %g\n", yylval.dbl);
+	return DOUBLE;
 }
 
 
 
 V[ \t]*\([ \t]*[[:digit:]]+[ \t]*\) {
   char * str;
-  char *ptr;
+  int i,j;
 
+  j = 0;
   str = strchr(yytext, '(')+1;
-  ptr = strchr(yytext, ')');
-  str = strndup(str, ptr-str);
-  
-  zprint("V2 %s (%s)\n", yytext, str);
-  yylval.str = str;
-	return V2;
+  char *s = strdup(str);
+
+  j = 0;
+  for (i=0; str[i] != ')'; i++ ) {
+    if ( str[i] == ' ' || str[i] == '\t' )
+      continue;
+    s[j++] = str[i];
+  }
+
+  s[j] = 0;
+  yylval.string = s;
+	return PLOT_V;
 }
 
 \n+ {
@@ -86,9 +91,25 @@ V[ \t]*\([ \t]*[[:digit:]]+[ \t]*\) {
 [\ \r\t]+ { }
 
 [_]?[[:alpha:]]+([[:alnum:]]?[_]?)+ {
-	yylval.str = strdup(yytext);
-  zprint("str: %s\n", yytext);
-	return STR;
+#if 0
+  int i = 0 ;
+  int j = 0;
+
+  char *s = strdup(yytext);
+
+  for (i=0; i<strlen(yytext); i++ ) {
+    if ( yytext[i] == ' ' || yytext[i] == '\t' )
+      continue;
+    s[j++] = yytext[i];
+
+  }
+  s[j] = 0;
+  yylval.string = s;
+  zprint("str: %s\n", s);
+  mprint("%p %p\n", yytext, yylval.string);
+#endif
+  yylval.string = strdup(yytext);
+	return STRING;
 }
 
 . { printf("Unexpected character %s@%d\n", yytext,yylineno); exit(0);}
