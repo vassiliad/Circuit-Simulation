@@ -10,4 +10,8 @@ void g_add(int row, int col, double val);
 void mna_free();
 void mna_analysis();
 void solve_dc();
+
+
+FILE *f;
+char *name_of_file;
 #endif

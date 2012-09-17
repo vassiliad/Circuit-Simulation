@@ -18,8 +18,8 @@ css *S=NULL;
 csn *N=NULL;
 
 int *P=NULL;
-
 int mna_size=0;
+
 
 int Doolittle_LU_Decomposition(double *A, int n);
 int Doolittle_LU_Solve(double *LU, double B[], double x[], int n);
@@ -34,13 +34,15 @@ void mna_free()
 	free(rhs);
 }
 
+ 
+ 
 void solve_dc()
 {
 	int i;
 	P = NULL;
 	dc = (double*) calloc(mna_size, sizeof(double));
 	rhs = (double*) calloc(mna_size*mna_size, sizeof(double));
-	FILE *dc_point;
+//	FILE *dc_point;
 
 	generate_rhs(rhs, mna_size, unique_hash, 1, 0);
 
@@ -72,10 +74,13 @@ void solve_dc()
 			G_s = temp;
 		}
 
-	dc_point = fopen("dc_point", "w");
-	printf("[#] DC point in file \"dc_point\"\n");
-	print_array(dc, mna_size, dc_point);
-	fclose(dc_point);
+	
+
+	
+//	dc_point = fopen("dc_point", "w");
+	printf("[#] DC point in file \"%s\"\n",name_of_file);
+	print_array(dc, mna_size, f);
+	fclose(f);
 #ifdef VERBOSE
 	print_array(dc, mna_size, stdout);
 	printf("[$] Rhs\n");

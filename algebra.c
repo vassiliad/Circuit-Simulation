@@ -213,6 +213,7 @@ int decompose(int size, int **P, enum NonIterativeMethods type)
 	if ( sparse_use == 0 ) {
 		switch ( type ) {
 			case LUDecomp:
+				printf("IN HERE1\n");
 				if ( *P == NULL )
 					*P = (int*) malloc(size*sizeof(int));
 
@@ -220,6 +221,7 @@ int decompose(int size, int **P, enum NonIterativeMethods type)
 				break;
 
 			case CholDecomp:
+				printf("IN HERE2\n");
 				if ( *P == NULL )
 					*P = (int*) malloc(size* sizeof(int));
 

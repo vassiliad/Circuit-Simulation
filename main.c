@@ -16,16 +16,25 @@ enum TransientMethods method_tran = Tr;
 int sparse_use = 0;
 
 double itol = 1e-3;
-
+extern int mna_size;
 
 int main(int argc, char* argv[])
 {
-
+	int debug;
   yyin = fopen(argv[1], "r");
-  if ( argc !=2 ) {
-    printf("usage:\n%s <file.spice>\n", argv[0]);
+	
+  if ( argc !=4 ) {
+    printf("usage:\n%s <file.spice> <output_file> DEBUG\n", argv[0]);
     return 0;
   }
+  
+  f = fopen(argv[2],"w");
+	name_of_file = argv[2];
+	
+	debug = atoi(argv[3]);
+	
+		
+  
   if ( yyin == NULL ) {
     printf("[-] Could not open %s\n", argv[1]);
     return 0;
@@ -36,7 +45,10 @@ int main(int argc, char* argv[])
   if ( yyparse() == 0 ) {
     printf("[+] Parsed %s succesfully.\n", argv[1]);
     mna_analysis();
-		
+		if (debug){
+			method_choice = NonIterative;
+			method_noniter = LUDecomp;
+		}
     solve_dc();
     if ( do_transient ) {
 			printf("[+] Performing Transient analysis\n");
@@ -54,5 +66,5 @@ int main(int argc, char* argv[])
 
 
 
-  return 0; 
+  return mna_size; 
 }

@@ -11,8 +11,8 @@ r6 13 14 0.1
 r7 18 10 1e3
 r8 14 10 10
 r11 17 16 1
-.option spd
-
-.dc i1 1 1 1
-.option iter
 *.option spd
+
+*.dc i1 1 1 1
+*.option iter
+.option spd
