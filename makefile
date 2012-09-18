@@ -44,4 +44,4 @@ clean:
 	rm -f parser.tab.c lex.yy.c debug zice parser.output parser.h *.o
 
 cloc: clean 
-	cloc lexical.l parser.y  main.c componets.* hash_table.* options.h utility.* mna.* solution.* transient.*
+	cloc lexical.l parser.y  main.c components.* hash_table.* options.h utility.* mna.* solution.* transient.* algebra.*
