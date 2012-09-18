@@ -1,5 +1,8 @@
-zice: parser.o lex.o main.o hash_table.o components.o mna.o utility.o plot.o algebra.o transient.o csparse.o
+zice: parser.o lex.o main.o hash_table.o components.o mna.o utility.o plot.o algebra.o transient.o csparse.o check
 	gcc -Wall -g *.o -lm  -o zice
+
+check: check.c
+	gcc check.c -o check
 
 csparse.o: csparse.h csparse.c
 	gcc -Wall -g -c csparse.c -o csparse.o
