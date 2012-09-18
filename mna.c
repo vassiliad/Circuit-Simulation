@@ -38,18 +38,20 @@ void mna_free()
  
 void solve_dc()
 {
-	int i;
+	int i, ret;
+	cs *temp;
 	P = NULL;
 	dc = (double*) calloc(mna_size, sizeof(double));
 	rhs = (double*) calloc(mna_size*mna_size, sizeof(double));
 //	FILE *dc_point;
 
-	generate_rhs(rhs, mna_size, unique_hash, 1, 0);
+	generate_rhs(rhs, mna_size, unique_hash, 0, 0);
 
   if ( method_choice == NonIterative ) {
-			if ( decompose( mna_size, &P, method_noniter) != 0 ) {
+			ret =  decompose( mna_size, &P, method_noniter);
+			printf("asdjkgyasjkdfyasldjavskdjhgas  %d\n\n\n", ret);
+			if (ret != 0 ) {
 				printf("[-] Circuit doesn't have dc point\n");
-				memset(dc, 0, sizeof(double)*mna_size);
 				exit(0);
 			} else {
 				solve_lu( P, rhs, dc, mna_size, method_noniter);
@@ -64,12 +66,14 @@ void solve_dc()
 					m[i] = G[i*mna_size+i];
 					if ( fabs(m[i]) < 0.000001 )
 						m[i] = 1;
+					else
+						m[i] = 1/m[i];
 				}
 			} else {
 				cs_get_diag(G_s, m, mna_size);
+				temp = G_s;
+				G_s = cs_compress(G_s);
 			}
-			cs *temp = G_s;
-			G_s = cs_compress(G_s);
 			solve_iter( rhs, dc, m, mna_size, method_iter);
 			G_s = temp;
 		}

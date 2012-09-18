@@ -15,7 +15,7 @@ enum NonIterativeMethods method_noniter = LUDecomp;
 enum TransientMethods method_tran = Tr;
 int sparse_use = 0;
 
-double itol = 1e-3;
+double itol = 1e-6;
 extern int mna_size;
 
 int main(int argc, char* argv[])
@@ -44,11 +44,12 @@ int main(int argc, char* argv[])
 
   if ( yyparse() == 0 ) {
     printf("[+] Parsed %s succesfully.\n", argv[1]);
-    mna_analysis();
-		if (debug){
+    		if (debug){
 			method_choice = NonIterative;
 			method_noniter = LUDecomp;
+			sparse_use=0;
 		}
+    mna_analysis();
     solve_dc();
     if ( do_transient ) {
 			printf("[+] Performing Transient analysis\n");
