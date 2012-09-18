@@ -1,5 +1,8 @@
-zice: parser.o lex.o main.o hash_table.o components.o mna.o utility.o plot.o algebra.o transient.o csparse.o
+zice: parser.o lex.o main.o hash_table.o components.o mna.o utility.o plot.o algebra.o transient.o csparse.o check
 	gcc -Wall -g *.o -lm  -o zice
+
+check: check.c
+	gcc check.c -o check
 
 csparse.o: csparse.h csparse.c
 	gcc -Wall -g -c csparse.c -o csparse.o
@@ -44,4 +47,4 @@ clean:
 	rm -f parser.tab.c lex.yy.c debug zice parser.output parser.h *.o
 
 cloc: clean 
-	cloc lexical.l parser.y  main.c componets.* hash_table.* options.h utility.* mna.* solution.* transient.*
+	cloc lexical.l parser.y  main.c components.* hash_table.* options.h utility.* mna.* solution.* transient.* algebra.*
