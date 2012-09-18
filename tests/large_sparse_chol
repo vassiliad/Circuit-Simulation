@@ -15,4 +15,4 @@ r11 17 16 1
 .option sparse
 
 .plot V(14)
-.dc i1 1 1 1
+*.dc i1 1 1 1
