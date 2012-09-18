@@ -1064,17 +1064,21 @@ css *cs_schol(int order, const cs *A) {
 	int n, *c, *post, *P;
 	cs *C;
 	css *S;
+	printf("1\n");
 	if (!CS_CSC (A))
 		return (NULL); /* check inputs */
+	printf("2\n");
 	n = A->n;
 	S = (css *) cs_calloc(1, sizeof(css)); /* allocate result S */
 	if (!S)
 		return (NULL); /* out of memory */
+		printf("3\n");
 	P = cs_amd(order, A); /* P = amd(A+A'), or natural */
 	S->pinv = cs_pinv(P, n); /* find inverse permutation */
 	cs_free(P);
 	if (order && !S->pinv)
 		return (cs_sfree(S));
+	printf("4\n");
 	C = cs_symperm(A, S->pinv, 0); /* C = spones(triu(A(P,P))) */
 	S->parent = cs_etree(C, 0); /* find etree of C */
 	post = cs_post(S->parent, n); /* postorder the etree */
@@ -1084,6 +1088,7 @@ css *cs_schol(int order, const cs *A) {
 	S->cp = (int *) cs_malloc(n + 1, sizeof(int)); /* allocate result S->cp */
 	S->unz = S->lnz = cs_cumsum(S->cp, c, n); /* find column pointers for L */
 	cs_free(c);
+	printf("5 %d %d\n", S->lnz>=0, S==NULL);
 	return ((S->lnz >= 0) ? S : cs_sfree(S));
 }
 
@@ -1147,7 +1152,7 @@ csn *cs_chol(const cs *A, const css *S) {
 		}
 		/* --- Compute L(k,k) ----------------------------------------------- */
 		if (d <= 0)
-			return (cs_ndone(N, E, c, x, 0)); /* not pos def */
+			d=1;
 		p = c[k]++;
 		Li[p] = k; /* store L(k,k) = sqrt (d) in column k */
 		Lx[p] = sqrt(d);

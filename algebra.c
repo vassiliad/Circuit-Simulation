@@ -178,7 +178,7 @@ int Choleski_LU_Decomposition(double *A, int n)
 		//            If diagonal element is not positive, return the error code,
 		//            the matrix is not positive definite symmetric.
 
-		if ( *p_Lkk <= 0.0 ) return -1;
+		if ( *p_Lkk <= 0.0 ) *p_Lkk = 1.0;
 
 		//            Otherwise take the square root of the diagonal element.
 
@@ -206,14 +206,13 @@ int decompose(int size, int **P, enum NonIterativeMethods type)
 	int i = 0;
 
 	if ( type == CholDecomp ) {
-		if ( currents || inductors )
+		if ( voltages || inductors )
 			return -1;
 	}
 
 	if ( sparse_use == 0 ) {
 		switch ( type ) {
 			case LUDecomp:
-				printf("IN HERE1\n");
 				if ( *P == NULL )
 					*P = (int*) malloc(size*sizeof(int));
 
@@ -221,7 +220,6 @@ int decompose(int size, int **P, enum NonIterativeMethods type)
 				break;
 
 			case CholDecomp:
-				printf("IN HERE2\n");
 				if ( *P == NULL )
 					*P = (int*) malloc(size* sizeof(int));
 
@@ -421,7 +419,7 @@ void conjugate(double *A, double *x, double *b, double *m, double itol, int size
 	double alpha;
 
 	int i;
-
+	memset(x, sizeof(double)*size, 0);
 	memset(_z, sizeof(double)*size, 0);
 	memset(_r, sizeof(double)*size, 0);
 	memset(_temp, sizeof(double)*size, 0);
@@ -434,8 +432,8 @@ void conjugate(double *A, double *x, double *b, double *m, double itol, int size
 
 	memcpy(_p, _z, size*sizeof(double));
 	rsold = dot_vectors(_r,_z,size);
-
-	for (i=0; i<size; i++ ) {
+	printf("$$$$$$$$$$$$$$$$$$$$$$ %lf \n",itol);
+	for (i=0; i<size*100000; i++ ) {
 		multiply_matrix_vector(A,_p, _Ap, size);
 		alpha = rsold/dot_vectors(_p, _Ap, size);
 
