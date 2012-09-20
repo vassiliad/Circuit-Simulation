@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include "options.h"
 #include "components.h"
+#include "dc_instruction.h"
 #include "transient.h"
 #include "hash_table.h"
 #include "plot.h"
@@ -85,13 +86,14 @@ entries: entries component NEW_LINE
 component: 
 STRING node_id node_id number transient_spec
 {
+	char *string_id;
   switch(tolower($1[0])) {
     case 'v' :
-      new_v( $2, $3, $4, $5);
+      new_v( $1, $2, $3, $4, $5);
     break;
 
     case 'i':
-      new_i( $2, $3, $4, $5);
+      new_i( $1, $2, $3, $4, $5);
     break;
 
     case 'r':
@@ -146,6 +148,29 @@ instruction: TRAN number number
   tran_finish = $3;
 }
 | PLOT plot_list
+| DC STRING number number number
+{
+	do_dc_instruction = 1;
+	dc_start = $3;
+	dc_stop = $4;
+	dc_step = $5;
+	
+	dc_id = $2;
+	
+	switch ( tolower($2[0]) ) {
+		case 'v':
+			dc_is_current = 0;
+		break;
+		
+		case 'i':
+				dc_is_current = 1;
+		break;
+		
+		default:
+			return yyerror("DC only supports Currents Voltages");
+		break;
+	}
+}
 ;
 
 pairs: pairs pair {

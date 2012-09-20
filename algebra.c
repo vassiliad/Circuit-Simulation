@@ -7,7 +7,7 @@
 #include "csparse.h"
 #include "components.h"
 #include "algebra.h"
-
+#include "utility.h"
 extern double *G, *C;
 extern cs *G_s, *C_s;
 extern css* S;
@@ -18,6 +18,14 @@ static double *_p;
 static double *_temp;
 static double *_Ap ;
 static double *_z = NULL;
+void solve(double *m , int *P, double *sol,
+		double *rhs,int  size)
+{
+	if ( method_choice == NonIterative)
+		solve_lu(P, rhs, sol, size, method_noniter);
+	else
+		solve_iter(rhs, sol, m, size, method_iter);
+}
 
 
 void multiply_vector_scalar(double *vec, double scalar, double* output, int size)
@@ -265,17 +273,17 @@ int biconjugate_sparse(cs *A, double *x, double *b, double *m, double itol, int 
 
 	int i;
 
-	memset(_z, sizeof(double)*size, 0);
-	memset(_r, sizeof(double)*size, 0);
-	memset(_temp, sizeof(double)*size, 0);
-	memset(_Ap, sizeof(double)*size, 0);
-	memset(_p, sizeof(double)*size, 0);
+	settozero(_z, size);
+	settozero(_r, size);
+	settozero(_temp,size);
+	settozero(_Ap, size);
+	settozero(_p, size);
 
 	//multiply_matrix_vector(A, x, _p, size);
 	cs_gaxpy(A, x, _p); // gia na doulepsei swsta prepei _p=[0,...,0]
 	sub_vectors(b, _p, _r, size);
 
-	for( i = 0 ; i < size; i++){
+	for( i = 0 ; i < size * size; i++){
 		multiply_vector_vector(_r,m,_z,size);
 		rsold = rsnew;
 		rsnew = dot_vectors(_z,_r,size);
@@ -292,7 +300,7 @@ int biconjugate_sparse(cs *A, double *x, double *b, double *m, double itol, int 
 			add_vectors(_z,_p,_p,size);
 		}
 		
-		memset(_Ap, sizeof(double)*size, 0);
+		settozero(_Ap, size);
 		cs_gaxpy(A, _p, _Ap);
 		//multiply_matrix_vector(A,_p,_Ap,size);
 		alpha = rsnew/dot_vectors(_p,_Ap,size);
@@ -318,11 +326,11 @@ void conjugate_sparse(cs *A, double *x, double *b, double *m, double itol, int s
 
 	int i;
 
-	memset(_z, sizeof(double)*size, 0);
-	memset(_r, sizeof(double)*size, 0);
-	memset(_temp, sizeof(double)*size, 0);
-	memset(_Ap, sizeof(double)*size, 0);
-	memset(_p, sizeof(double)*size, 0);
+	settozero(_z, size);
+	settozero(_r, size);
+	settozero(_temp,size);
+	settozero(_Ap,size);
+	settozero(_p,size );
 	
 	cs_gaxpy(A, x, _p);
 	//multiply_matrix_vector(A, x, _p, size);
@@ -332,8 +340,8 @@ void conjugate_sparse(cs *A, double *x, double *b, double *m, double itol, int s
 	memcpy(_p, _z, size*sizeof(double));
 	rsold = dot_vectors(_r,_z,size);
 
-	for (i=0; i<size; i++ ) {
-		memset(_Ap, sizeof(double)*size, 0);
+	for (i=0; i<size * size; i++ ) {
+		settozero(_Ap,size);
 		cs_gaxpy(A, _p, _Ap);
 		// multiply_matrix_vector(A,_p, _Ap, size);
 		alpha = rsold/dot_vectors(_p, _Ap, size);
@@ -365,16 +373,16 @@ int biconjugate(double *A, double *x, double *b, double *m, double itol, int siz
 
 	int i;
 
-	memset(_z, sizeof(double)*size, 0);
-	memset(_r, sizeof(double)*size, 0);
-	memset(_temp, sizeof(double)*size, 0);
-	memset(_Ap, sizeof(double)*size, 0);
-	memset(_p, sizeof(double)*size, 0);
+	settozero(_z, size);
+	settozero(_r, size);
+	settozero(_temp, size);
+	settozero(_Ap, size);
+	settozero(_p, size);
 
 	multiply_matrix_vector(A, x, _p, size);
 	sub_vectors(b, _p, _r, size);
 
-	for( i = 0 ; i < size; i++){
+	for( i = 0 ; i < size * size; i++){
 		multiply_vector_vector(_r,m,_z,size);
 		rsold = rsnew;
 		rsnew = dot_vectors(_z,_r,size);
@@ -419,12 +427,12 @@ void conjugate(double *A, double *x, double *b, double *m, double itol, int size
 	double alpha;
 
 	int i;
-	memset(x, sizeof(double)*size, 0);
-	memset(_z, sizeof(double)*size, 0);
-	memset(_r, sizeof(double)*size, 0);
-	memset(_temp, sizeof(double)*size, 0);
-	memset(_Ap, sizeof(double)*size, 0);
-	memset(_p, sizeof(double)*size, 0);
+	settozero(x, size);
+	settozero(_z,size);
+	settozero(_r, size);
+	settozero(_temp, size);
+	settozero(_Ap, size);
+	settozero(_p, size);
 
 	multiply_matrix_vector(A, x, _p, size);
 	sub_vectors(b, _p, _r, size);
@@ -433,7 +441,7 @@ void conjugate(double *A, double *x, double *b, double *m, double itol, int size
 	memcpy(_p, _z, size*sizeof(double));
 	rsold = dot_vectors(_r,_z,size);
 	printf("$$$$$$$$$$$$$$$$$$$$$$ %lf \n",itol);
-	for (i=0; i<size*100000; i++ ) {
+	for (i=0; i<size*size; i++ ) {
 		multiply_matrix_vector(A,_p, _Ap, size);
 		alpha = rsold/dot_vectors(_p, _Ap, size);
 

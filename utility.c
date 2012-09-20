@@ -8,6 +8,14 @@
 #define  pi      3.14159265
 
 
+void settozero(double *vec,int size){
+	int i;
+	for(i = 0; i < size ; i++)
+		vec[i] = 0.0;
+}
+
+
+
 double linear_interpolate(double x, double x0, double y0, double x1, double y1)
 {
   return y0 + ((x-x0)*y1 - (x-x0)*y0)/(x1-x0);
@@ -103,7 +111,7 @@ void generate_rhs(double *rhs, int size, int nodes, int transient, double t)
   v_t *v;
   i_t *i;
 
-  memset(rhs, 0, sizeof(double)*size);
+  settozero(rhs, size);
   double temp;
   for (i=p_i; i; i=i->next) {
     if ( transient ==1 && i->transient)

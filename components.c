@@ -13,7 +13,7 @@ r_t *p_r = NULL;
 l_t *p_l = NULL;
 c_t *p_c = NULL;
 
-void new_v(int plus, int minus, double value, transient_t *transient)
+void new_v(char *string_id, int plus, int minus, double value, transient_t *transient)
 {
   v_t *v;
   v = (v_t*) calloc(1,sizeof(v_t));
@@ -22,6 +22,7 @@ void new_v(int plus, int minus, double value, transient_t *transient)
   v->minus = minus;
   v->transient = transient;
   v->val = value;
+	v->string_id = string_id;
 
   v->next = p_v;
   p_v = v;
@@ -31,7 +32,7 @@ void new_v(int plus, int minus, double value, transient_t *transient)
 #endif
 }
 
-void new_i(int plus, int minus, double value, transient_t *transient)
+void new_i(char *string_id, int plus, int minus, double value, transient_t *transient)
 {
   i_t *i;
   i = (i_t*) calloc(1,sizeof(i_t));
@@ -40,6 +41,7 @@ void new_i(int plus, int minus, double value, transient_t *transient)
   i->minus = minus;
   i->transient = transient;
   i->val = value;
+	i->string_id = string_id;
 
   i->next = p_i;
   p_i = i;

@@ -3,6 +3,7 @@
 #include "components.h"
 #include "hash_table.h"
 #include "mna.h"
+#include "dc_instruction.h"
 #include "transient.h"
 
 extern FILE* yyin;
@@ -54,6 +55,11 @@ int main(int argc, char* argv[])
     if ( do_transient ) {
 			printf("[+] Performing Transient analysis\n");
       transient_analysis();
+		}
+		
+		if ( do_dc_instruction) {
+			printf("[+] Performing DC instruction\n");
+			dc_instruction();
 		}
 		
 		mna_free();

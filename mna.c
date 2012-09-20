@@ -49,7 +49,6 @@ void solve_dc()
 
   if ( method_choice == NonIterative ) {
 			ret =  decompose( mna_size, &P, method_noniter);
-			printf("asdjkgyasjkdfyasldjavskdjhgas  %d\n\n\n", ret);
 			if (ret != 0 ) {
 				printf("[-] Circuit doesn't have dc point\n");
 				exit(0);

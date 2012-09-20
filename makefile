@@ -1,4 +1,4 @@
-zice: parser.o lex.o main.o hash_table.o components.o mna.o utility.o plot.o algebra.o transient.o csparse.o check
+zice: parser.o lex.o main.o hash_table.o components.o mna.o utility.o plot.o algebra.o transient.o csparse.o dc_instruction.o check 
 	gcc -Wall -g *.o -lm  -o zice
 
 check: check.c
@@ -39,6 +39,9 @@ transient.o: transient.c transient.h
 
 parser.tab.c: parser.y
 	bison -vt --defines=parser.h parser.y
+
+dc_instruction.o: dc_instruction.c dc_instruction.h
+	gcc -Wall -g -c dc_instruction.c -o dc_instruction.o
 
 lex.yy.c: lexical.l parser.h
 	flex -i lexical.l

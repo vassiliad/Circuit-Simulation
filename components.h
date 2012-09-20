@@ -50,7 +50,8 @@ typedef struct V_T
   double val;
   int id;
   transient_t *transient;
-
+	
+	char *string_id;
   struct V_T* next;
 } v_t;
 
@@ -77,8 +78,8 @@ extern l_t *p_l;
 extern c_t *p_c;
 
 
-void new_v(int plus, int minus, double value, transient_t *transient);
-void new_i(int plus, int minus, double value, transient_t *transient);
+void new_v(char *string_id, int plus, int minus, double value, transient_t *transient);
+void new_i(char *string_id, int plus, int minus, double value, transient_t *transient);
 void new_r(int plus, int minus, double value);
 void new_c(int plus, int minus, double value);
 void new_l(int plus, int minus, double value);

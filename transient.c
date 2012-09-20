@@ -23,16 +23,6 @@ extern double *m;
 extern cs *C_s, *G_s;
 
 
-
-void solve(double *m , int *P, double *sol,
-		double *rhs,int  size)
-{
-	if ( method_choice == NonIterative)
-		solve_lu(P, rhs, sol, size, method_noniter);
-	else
-		solve_iter(rhs, sol, m, size, method_iter);
-}
-
 void transient_analysis_tr()
 {
 	int size = voltages + inductors + unique_hash;
@@ -40,6 +30,7 @@ void transient_analysis_tr()
 	double t, temp, temp2;
 
 	double *swap;
+	double *e = (double*) malloc(sizeof(double)*size);
 	double *sol  = (double*) malloc(sizeof(double)*size);
 	double *rhs0 = (double*) malloc(sizeof(double)*size);
 
@@ -68,6 +59,8 @@ void transient_analysis_tr()
 				m[i] = G[i*size+i];
 				if ( fabs(m[i]) < 0.000001 )
 					m[i] = 1;
+				else
+					m[i] = 1/m[i];
 			}
 		} else {
 			cs_get_diag(G_s, m, size);
@@ -80,10 +73,18 @@ void transient_analysis_tr()
 	for ( t=tran_step; t <= tran_finish; t+=tran_step ) {
 		generate_rhs(rhs, size, unique_hash, 1, t);
 
-		for (i=0; i<size; i++) {
+		/*for (i=0; i<size; i++) {
 			rhs0[i] += rhs[i];
 			for (j=0; j<size; j++ )
 				rhs0[i] -=  c_read(i,j) * sol[j];
+		}*/
+		
+		for ( i=0; i<size; i++ ) {
+			e[i] = 0;
+			for ( j=0; j< size; j++ )
+				e[i] += c_read(i,j)*sol[j];
+			
+			e[i]= rhs[i] + rhs0[i] - e[i];
 		}
 
 		// rhs = e-1(t) + e(t) -*((G-2/hC)*X(n-1))
@@ -137,6 +138,8 @@ void transient_analysis_be()
 				m[i] = G[i*size+i];
 				if ( fabs(m[i]) < 0.000001 )
 					m[i] = 1;
+				else
+					m[i] = 1/m[i];
 			}
 		} else {
 			cs_get_diag(G_s, m, size);
@@ -168,8 +171,6 @@ void transient_analysis_be()
 	}
 
 	plot_finalize();
-
-	free(sol);
 
 }
 

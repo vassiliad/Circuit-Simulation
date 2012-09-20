@@ -1312,8 +1312,8 @@ void cs_get_diag(const cs *T,  double *m, int size)
 			if ( i == j ) {
 	      if ( c != T->nz ) {
   	    	m[i] = T->x[c];
-					if (fabs(m[i])<0.0001)
-						m[i] = T->x[c];
+					if (fabs(m[i])>0.0001)
+						m[i] = 1/T->x[c];
     	  } else {
 					m[i] = 1;
       	}
