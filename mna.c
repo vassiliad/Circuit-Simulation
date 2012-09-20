@@ -42,7 +42,10 @@ void solve_dc()
 	cs *temp;
 	P = NULL;
 	dc = (double*) calloc(mna_size, sizeof(double));
-	rhs = (double*) calloc(mna_size*mna_size, sizeof(double));
+	rhs = (double*) calloc(mna_size, sizeof(double));
+
+	assert(dc);
+	assert(rhs);
 //	FILE *dc_point;
 
 	generate_rhs(rhs, mna_size, unique_hash, 0, 0);
@@ -225,18 +228,28 @@ void mna_analysis()
 		}
 	}
 
+	printf("[+] MNA is done (size: %dx%d)\n", mna_size, mna_size);
+
 	g_file = fopen("G_matrix", "w");
 	if ( sparse_use == 0 )
 		print_matrix(G, mna_size, g_file);
-	else
-    cs_print_formated(G_s, g_file, mna_size);
+	else {
+		if ( mna_size < 10000 )
+    	cs_print_formated(G_s, g_file, mna_size);
+		else
+			cs_print(G_s, g_file, 0);
+	}
 	fclose(g_file);
 
 	c_file = fopen("C_matrix", "w");
 	if ( sparse_use == 0 )
 		print_matrix(C, mna_size, c_file);
-	else
-    cs_print_formated(C_s, c_file, mna_size);
+	else {
+		if ( mna_size < 10000 )
+    	cs_print_formated(C_s, c_file, mna_size);
+		else
+			cs_print(C_s, c_file, 0);
+	}
 	fclose(c_file);
 
 	printf("[#] G and C are saved in G_matrix and C_matrix\n");

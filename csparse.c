@@ -1385,16 +1385,12 @@ cs *cs_load(char *matrixFilename) {
 	return (T);
 }
 
-int cs_print(const cs *A, const char *outputFilename, int brief) {
+int cs_print(const cs *A, FILE* outputFilePtr, int brief) {
 
 	int p, j, m, n, nzmax, nz, *Ap, *Ai;
 	double *Ax;
-	FILE *outputFilePtr;
 
-	outputFilePtr = fopen(outputFilename, "w");
 	if (outputFilePtr == NULL) {
-
-		fprintf(stderr, "Could not open output file %s for writing\n", outputFilename);
 		assert(EXIT_FAILURE);
 	}
 
@@ -1432,7 +1428,6 @@ int cs_print(const cs *A, const char *outputFilename, int brief) {
 		}
 	}
 
-	fclose(outputFilePtr);
 	return (1);
 }
 
